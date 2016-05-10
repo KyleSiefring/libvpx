@@ -45,8 +45,7 @@ int64_t vp9_block_error_avx2(const int16_t *coeff,
     // expand each double word in the lower 64 bits to quad word
     sse_reg = _mm256_unpacklo_epi32(dqcoeff_reg1, zero_reg);
     ssz_reg  = _mm256_unpacklo_epi32(coeff_reg1, zero_reg);
-  }
-  else {
+  } else {
     // init sse and ssz registerd to zero
     sse_reg = _mm256_set1_epi16(0);
     ssz_reg = _mm256_set1_epi16(0);
