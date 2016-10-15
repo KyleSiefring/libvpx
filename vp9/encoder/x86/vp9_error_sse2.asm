@@ -38,7 +38,7 @@ cglobal block_error, 3, 3, 8, uqc, dqc, size, ssz
   pmaddwd   m1, m1
   pmaddwd   m2, m2
   pmaddwd   m3, m3
-  ; the sum of 2 31bit integers will fit in a 32bit unsigned integer
+  ; the sum of 2 32bit integers will fit in a 32bit unsigned integer
   paddd     m0, m1
   paddd     m2, m3
   ; accumulate in 64bit
@@ -92,7 +92,7 @@ cglobal block_error_fp, 3, 3, 6, uqc, dqc, size
   ; thus the sum of 2 should fit in a 31bit integer (+ unused sign bit)
   pmaddwd   m0, m0
   pmaddwd   m1, m1
-  ; the sum of 2 31bit integers will fit in a 32bit unsigned integer
+  ; the sum of 2 32bit integers will fit in a 32bit unsigned integer
   paddd     m0, m1
   ; accumulate in 64bit
   punpckldq m3, m0, m5
