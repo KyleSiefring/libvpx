@@ -586,6 +586,112 @@ static void vpx_filter_block1d16_v8_avg_avx2(
                                  output_height, filter, 1);
 }
 
+static INLINE void shuffle_filter_avx2(const int16_t *const filter,
+                                        __m256i *const f) {
+  const __m128i f_values = _mm_load_si128((const __m128i *)filter);
+  // pack and duplicate the filter values
+  f[0] = MM256_BROADCASTSI128_SI256(_mm_shuffle_epi8(f_values, _mm_set1_epi16(0x0200u)));
+  f[1] = MM256_BROADCASTSI128_SI256(_mm_shuffle_epi8(f_values, _mm_set1_epi16(0x0604u)));
+  f[2] = MM256_BROADCASTSI128_SI256(_mm_shuffle_epi8(f_values, _mm_set1_epi16(0x0a08u)));
+  f[3] = MM256_BROADCASTSI128_SI256(_mm_shuffle_epi8(f_values, _mm_set1_epi16(0x0e0cu)));
+}
+
+static INLINE __m256i convolve8_8_avx2(const __m256i *const s,
+                                        const __m256i *const f) {
+  // multiply 2 adjacent elements with the filter and add the result
+  const __m256i k_64 = _mm256_set1_epi16(1 << 6);
+  const __m256i x0 = _mm256_maddubs_epi16(s[0], f[0]);
+  const __m256i x1 = _mm256_maddubs_epi16(s[1], f[1]);
+  const __m256i x2 = _mm256_maddubs_epi16(s[2], f[2]);
+  const __m256i x3 = _mm256_maddubs_epi16(s[3], f[3]);
+  // add and saturate the results together
+  const __m256i min_x2x1 = _mm256_min_epi16(x2, x1);
+  const __m256i max_x2x1 = _mm256_max_epi16(x2, x1);
+  __m256i temp = _mm256_adds_epi16(x0, x3);
+  temp = _mm256_adds_epi16(temp, min_x2x1);
+  temp = _mm256_adds_epi16(temp, max_x2x1);
+  // round and shift by 7 bit each 16 bit
+  temp = _mm256_adds_epi16(temp, k_64);
+  temp = _mm256_srai_epi16(temp, 7);
+  return temp;
+}
+
+static INLINE void vpx_filter_block1d32_v8_X_avx2(
+    const uint8_t *src_ptr, ptrdiff_t src_pitch, uint8_t *output_ptr,
+    ptrdiff_t out_pitch, uint32_t output_height, const int16_t *filter,
+    int avg) {
+  unsigned int i;
+  __m256i f[4], s[8], ss[4], out1, out2;
+
+  shuffle_filter_avx2(filter, f);
+
+  s[0] = _mm256_loadu_si256((const __m256i *)(src_ptr));
+  s[1] = _mm256_loadu_si256((const __m256i *)(src_ptr + src_pitch));
+  s[2] = _mm256_loadu_si256((const __m256i *)(src_ptr + src_pitch * 2));
+  s[3] = _mm256_loadu_si256((const __m256i *)(src_ptr + src_pitch * 3));
+  s[4] = _mm256_loadu_si256((const __m256i *)(src_ptr + src_pitch * 4));
+  s[5] = _mm256_loadu_si256((const __m256i *)(src_ptr + src_pitch * 5));
+  s[6] = _mm256_loadu_si256((const __m256i *)(src_ptr + src_pitch * 6));
+
+  for (i = 0; i < output_height; i++) {
+    // load the last 8 bytes
+    s[7] = _mm256_loadu_si256((const __m256i *)(src_ptr + 7 * src_pitch));
+    
+    // merge the result together
+    ss[0] = _mm256_unpacklo_epi8(s[0], s[1]);
+    ss[1] = _mm256_unpacklo_epi8(s[2], s[3]);
+
+    // merge the result together
+    ss[2] = _mm256_unpacklo_epi8(s[4], s[5]);
+    ss[3] = _mm256_unpacklo_epi8(s[6], s[7]);
+
+    out1 = convolve8_8_avx2(ss, f);
+
+    // merge the result together
+    ss[0] = _mm256_unpackhi_epi8(s[0], s[1]);
+    ss[1] = _mm256_unpackhi_epi8(s[2], s[3]);
+
+    // merge the result together
+    ss[2] = _mm256_unpackhi_epi8(s[4], s[5]);
+    ss[3] = _mm256_unpackhi_epi8(s[6], s[7]);
+
+    out2 = convolve8_8_avx2(ss, f);
+
+    out1 = _mm256_packus_epi16(out1, out2);
+
+    src_ptr += src_pitch;
+
+    s[0] = s[1];
+    s[1] = s[2];
+    s[2] = s[3];
+    s[3] = s[4];
+    s[4] = s[5];
+    s[5] = s[6];
+    s[6] = s[7];
+
+    if (avg) {
+      out1 = _mm256_avg_epu8(out1, _mm256_loadu_si256((__m256i *)output_ptr));
+    }
+    _mm256_storeu_si256((__m256i *)output_ptr, out1);
+
+    output_ptr += out_pitch;
+  }
+}
+
+static void vpx_filter_block1d32_v8_avx2(
+    const uint8_t *src_ptr, ptrdiff_t src_stride, uint8_t *output_ptr,
+    ptrdiff_t dst_stride, uint32_t output_height, const int16_t *filter) {
+  vpx_filter_block1d32_v8_X_avx2(src_ptr, src_stride, output_ptr, dst_stride,
+                                 output_height, filter, 0);
+}
+
+static void vpx_filter_block1d32_v8_avg_avx2(
+    const uint8_t *src_ptr, ptrdiff_t src_stride, uint8_t *output_ptr,
+    ptrdiff_t dst_stride, uint32_t output_height, const int16_t *filter) {
+  vpx_filter_block1d32_v8_X_avx2(src_ptr, src_stride, output_ptr, dst_stride,
+                                 output_height, filter, 1);
+}
+
 #if HAVE_AVX2 && HAVE_SSSE3
 filter8_1dfunction vpx_filter_block1d4_v8_ssse3;
 #if ARCH_X86_64
@@ -657,7 +763,7 @@ filter8_1dfunction vpx_filter_block1d4_h2_avg_ssse3;
 //                                   int32_t x_step_q4, int y0_q4,
 //                                   int y_step_q4, int w, int h);
 FUN_CONV_1D(horiz, x0_q4, x_step_q4, h, src, , avx2);
-FUN_CONV_1D(vert, y0_q4, y_step_q4, v, src - src_stride * 3, , avx2);
+FUN_CONV_1D_XL(vert, y0_q4, y_step_q4, v, src - src_stride * 3, , avx2);
 FUN_CONV_1D(avg_horiz, x0_q4, x_step_q4, h, src, avg_, avx2);
 FUN_CONV_1D(avg_vert, y0_q4, y_step_q4, v, src - src_stride * 3, avg_, avx2);
 
