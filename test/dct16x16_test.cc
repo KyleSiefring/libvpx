@@ -346,8 +346,9 @@ class Trans16x16TestBase {
         }
       }
 
+      for (int m = 0; m < 1000; m++){
       ASM_REGISTER_STATE_CHECK(
-          RunFwdTxfm(test_input_block, test_temp_block, pitch_));
+          RunFwdTxfm(test_input_block, test_temp_block, pitch_));}
       if (bit_depth_ == VPX_BITS_8) {
         ASM_REGISTER_STATE_CHECK(RunInvTxfm(test_temp_block, dst, pitch_));
 #if CONFIG_VP9_HIGHBITDEPTH
