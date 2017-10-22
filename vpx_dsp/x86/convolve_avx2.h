@@ -50,6 +50,7 @@ static INLINE void shuffle_filter_avx2(const int16_t *const filter,
   f[3] = _mm256_shuffle_epi8(f_values, _mm256_set1_epi16(0x0e0cu));
 }
 
+#if 0
 static INLINE __m256i convolve8_16_avx2(const __m256i *const s,
                                         const __m256i *const f) {
   // multiply 2 adjacent elements with the filter and add the result
@@ -69,6 +70,27 @@ static INLINE __m256i convolve8_16_avx2(const __m256i *const s,
   temp = _mm256_srai_epi16(temp, 7);
   return temp;
 }
+#else
+static INLINE __m256i convolve8_16_avx2(const __m256i *const s,
+                                        const __m256i *const f) {
+  // multiply 2 adjacent elements with the filter and add the result
+  const __m256i k_rounding = _mm256_set1_epi16((1 << 6) + (1 << 14));
+  const __m256i k_big = _mm256_set1_epi16(1 << 14);
+  const __m256i x0 = _mm256_maddubs_epi16(s[0], f[0]);
+  const __m256i x1 = _mm256_maddubs_epi16(s[1], f[1]);
+  const __m256i x2 = _mm256_maddubs_epi16(s[2], f[2]);
+  const __m256i x3 = _mm256_maddubs_epi16(s[3], f[3]);
+  // add and saturate the results together
+  __m256i a = _mm256_sub_epi16(x1, k_big);
+  a = _mm256_add_epi16(a, x2);
+  __m256i temp = _mm256_add_epi16(x0, x3);
+  temp = _mm256_add_epi16(temp, a);
+  // round and shift by 7 bit each 16 bit
+  temp = _mm256_adds_epi16(temp, k_rounding);
+  temp = _mm256_srai_epi16(temp, 7);
+  return temp;
+}
+#endif
 
 static INLINE __m128i convolve8_8_avx2(const __m256i *const s,
                                        const __m256i *const f) {

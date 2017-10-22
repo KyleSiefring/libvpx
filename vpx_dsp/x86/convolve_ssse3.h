@@ -40,6 +40,7 @@ static INLINE void shuffle_filter_odd_ssse3(const int16_t *const filter,
   f[4] = _mm_shuffle_epi8(f_values, _mm_set1_epi16(0x070eu));
 }
 
+#if 1
 static INLINE __m128i convolve8_8_ssse3(const __m128i *const s,
                                         const __m128i *const f) {
   // multiply 2 adjacent elements with the filter and add the result
@@ -59,6 +60,26 @@ static INLINE __m128i convolve8_8_ssse3(const __m128i *const s,
   temp = _mm_srai_epi16(temp, 7);
   return temp;
 }
+#else
+static INLINE __m128i convolve8_8_ssse3(const __m128i *const s,
+                                        const __m128i *const f) {
+  // multiply 2 adjacent elements with the filter and add the result
+  const __m128i k_rounding = _mm_set1_epi16((1 << 6) + (1 << 14));
+  const __m128i k_big = _mm_set1_epi16(1 << 14);
+  const __m128i x0 = _mm_maddubs_epi16(s[0], f[0]);
+  const __m128i x1 = _mm_maddubs_epi16(s[1], f[1]);
+  const __m128i x2 = _mm_maddubs_epi16(s[2], f[2]);
+  const __m128i x3 = _mm_maddubs_epi16(s[3], f[3]);
+  __m128i a = _mm_sub_epi16(x1, k_big);
+  a = _mm_add_epi16(a, x2);
+  __m128i temp = _mm_add_epi16(x0, x3);
+  temp = _mm_add_epi16(temp, a);
+  // round and shift by 7 bit each 16 bit
+  temp = _mm_adds_epi16(temp, k_rounding);
+  temp = _mm_srai_epi16(temp, 7);
+  return temp;
+}
+#endif
 
 static INLINE __m128i convolve8_8_even_offset_ssse3(const __m128i *const s,
                                                     const __m128i *const f) {
