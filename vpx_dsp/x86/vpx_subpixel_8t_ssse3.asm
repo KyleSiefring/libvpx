@@ -34,12 +34,14 @@ SECTION .text
     %define    k4k5  [rsp + 16*2]
     %define    k6k7  [rsp + 16*3]
     packsswb     m4, m4
+    pxor         m5, m5
+    psubb        m5, m4
     ; TODO(slavarnway): multiple pshufb instructions had a higher latency on
     ; some platforms.
     pshuflw      m0, m4, 0b              ;k0_k1
-    pshuflw      m1, m4, 01010101b       ;k2_k3
+    pshuflw      m1, m5, 01010101b       ;k2_k3
     pshuflw      m2, m4, 10101010b       ;k4_k5
-    pshuflw      m3, m4, 11111111b       ;k6_k7
+    pshuflw      m3, m5, 11111111b       ;k6_k7
     punpcklqdq   m0, m0
     punpcklqdq   m1, m1
     punpcklqdq   m2, m2
@@ -86,16 +88,22 @@ cglobal filter_block1d4_%1, 6, 6, 11, LOCAL_VARS_SIZE_H4, \
     mova               krd, [GLOBAL(pw_64)]
     pshuflw       k0k1k4k5, m4, 0b              ;k0_k1
     pshufhw       k0k1k4k5, k0k1k4k5, 10101010b ;k0_k1_k4_k5
-    pshuflw       k2k3k6k7, m4, 01010101b       ;k2_k3
-    pshufhw       k2k3k6k7, k2k3k6k7, 11111111b ;k2_k3_k6_k7
+    pshuflw             m0, m4, 01010101b       ;k2_k3
+    pshufhw             m0, m0, 11111111b       ;k2_k3_k6_k7
+    pxor          k2k3k6k7, k2k3k6k7
+    psubb         k2k3k6k7, m0
 %else
     %define       k0k1k4k5  [rsp + 16*0]
     %define       k2k3k6k7  [rsp + 16*1]
     %define            krd  [rsp + 16*2]
+    pxor                m5, m5
+    psubb               m5, m4
     pshuflw             m6, m4, 0b              ;k0_k1
     pshufhw             m6, m6, 10101010b       ;k0_k1_k4_k5
     pshuflw             m7, m4, 01010101b       ;k2_k3
     pshufhw             m7, m7, 11111111b       ;k2_k3_k6_k7
+    pxor                m0, m0
+    psubb               m0, m7
 %if CONFIG_PIC=0
     mova                m1, [GLOBAL(pw_64)]
 %else
@@ -105,7 +113,7 @@ cglobal filter_block1d4_%1, 6, 6, 11, LOCAL_VARS_SIZE_H4, \
     psllw               m1, 6                   ;aka pw_64
 %endif
     mova          k0k1k4k5, m6
-    mova          k2k3k6k7, m7
+    mova          k2k3k6k7, m0
     mova               krd, m1
 %endif
     dec            heightd
@@ -130,14 +138,14 @@ cglobal filter_block1d4_%1, 6, 6, 11, LOCAL_VARS_SIZE_H4, \
     punpcklqdq          m0, m2
     punpckhqdq          m5, m1, m3
     punpcklqdq          m1, m3
-    paddsw              m0, m4
-    paddsw              m1, m5
+    paddw               m0, m4
+    paddw               m0, krd
+    paddw               m1, m5
 %ifidn %1, h8_avg
     movd                m4, [dstq]
     movd                m5, [dstq + dstrideq]
 %endif
-    paddsw              m0, m1
-    paddsw              m0, krd
+    psubsw              m0, m1
     psraw               m0, 7
     packuswb            m0, m0
     psrldq              m1, m0, 4
@@ -170,10 +178,10 @@ cglobal filter_block1d4_%1, 6, 6, 11, LOCAL_VARS_SIZE_H4, \
     pmaddubsw           m1, k2k3k6k7
     psrldq              m2, m0, 8
     psrldq              m3, m1, 8
-    paddsw              m0, m2
-    paddsw              m1, m3
-    paddsw              m0, m1
-    paddsw              m0, krd
+    paddw               m0, m2
+    paddw               m0, krd
+    paddw               m1, m3
+    psubsw              m0, m1
     psraw               m0, 7
     packuswb            m0, m0
 %ifidn %1, h8_avg
@@ -213,9 +221,10 @@ cglobal filter_block1d8_%1, 6, 6, 14, LOCAL_VARS_SIZE, \
     palignr              m7, m6, m4, 13
     palignr              m0, m6, m4, 5
     pmaddubsw            m7, k6k7
-    paddsw               m1, m3
-    paddsw               m2, m5
-    paddsw               m1, m2
+    paddw                m1, m3
+    paddw                m1, krd
+    paddw                m2, m5
+    psubsw               m1, m2
 %ifidn %1, h8_avg
     movh                 m2, [dstq]
     movhps               m2, [dstq + dstrideq]
@@ -224,13 +233,12 @@ cglobal filter_block1d8_%1, 6, 6, 14, LOCAL_VARS_SIZE, \
     palignr              m6, m4, 1
     pmaddubsw            m0, k2k3
     pmaddubsw            m6, k0k1
-    paddsw               m1, krd
     pmaddubsw            m5, k4k5
     psraw                m1, 7
-    paddsw               m0, m7
-    paddsw               m6, m5
-    paddsw               m6, m0
-    paddsw               m6, krd
+    paddw                m0, m7
+    paddw                m6, m5
+    paddw                m6, krd
+    psubsw               m6, m0
     psraw                m6, 7
     packuswb             m1, m6
 %ifidn %1, h8_avg
@@ -261,10 +269,10 @@ cglobal filter_block1d8_%1, 6, 6, 14, LOCAL_VARS_SIZE, \
     pmaddubsw            m2, k2k3
     pmaddubsw            m3, k4k5
     pmaddubsw            m4, k6k7
-    paddsw               m1, m3
-    paddsw               m4, m2
-    paddsw               m1, m4
-    paddsw               m1, krd
+    paddw                m1, m3
+    paddw                m1, krd
+    paddw                m4, m2
+    psubsw               m1, m4
     psraw                m1, 7
     packuswb             m1, m1
 %ifidn %1, h8_avg
@@ -302,14 +310,14 @@ cglobal filter_block1d16_%1, 6, 6, 14, LOCAL_VARS_SIZE, \
     movu          m7, [srcq + 4]
     pmaddubsw     m3, k6k7
     pmaddubsw     m7, k6k7
-    paddsw        m0, m2
-    paddsw        m1, m3
-    paddsw        m0, m1
-    paddsw        m4, m6
-    paddsw        m5, m7
-    paddsw        m4, m5
-    paddsw        m0, krd
-    paddsw        m4, krd
+    paddw         m0, m2
+    paddw         m0, krd
+    paddw         m1, m3
+    psubsw        m0, m1
+    paddw         m4, m6
+    paddw         m4, krd
+    paddw         m5, m7
+    psubsw        m4, m5
     psraw         m0, 7
     psraw         m4, 7
     packuswb      m0, m0
@@ -401,20 +409,20 @@ cglobal filter_block1d%2_%1, 6, NUM_GENERAL_REG_USED, 15, LOCAL_VARS_SIZE, \
     pmaddubsw                m6, k6k7
     pmaddubsw                m3, k2k3
     pmaddubsw                m1, k0k1
-    paddsw                   m0, m4
-    paddsw                   m2, m6
+    paddw                    m0, m4
+    paddw                    m2, m6
+    paddw                    m0, krd
     movx                     m6, [srcq + sstrideq * 8 ]     ;H next iter
     punpcklbw                m7, m6
     pmaddubsw                m7, k6k7
-    paddsw                   m0, m2
-    paddsw                   m0, krd
+    psubsw                   m0, m2
     psraw                    m0, 7
-    paddsw                   m1, m5
+    paddw                    m1, m5
+    paddw                    m1, krd
     packuswb                 m0, m0
 
-    paddsw                   m3, m7
-    paddsw                   m1, m3
-    paddsw                   m1, krd
+    paddw                    m3, m7
+    psubsw                   m1, m3
     psraw                    m1, 7
     lea                    srcq, [srcq + sstrideq * 2 ]
     lea                   src1q, [src1q + sstrideq * 2]
@@ -454,10 +462,10 @@ cglobal filter_block1d%2_%1, 6, NUM_GENERAL_REG_USED, 15, LOCAL_VARS_SIZE, \
     punpcklbw                m4, m5                         ;E F
     pmaddubsw                m2, k2k3
     pmaddubsw                m4, k4k5
-    paddsw                   m2, m6
-    paddsw                   m0, m4
-    paddsw                   m0, m2
-    paddsw                   m0, krd
+    paddw                    m2, m6
+    paddw                    m0, m4
+    paddw                    m0, krd
+    psubsw                   m0, m2
     psraw                    m0, 7
     packuswb                 m0, m0
 %ifidn %1, v8_avg
@@ -503,19 +511,19 @@ cglobal filter_block1d%2_%1, 6, NUM_GENERAL_REG_USED, 15, LOCAL_VARS_SIZE, \
     mova                     m3, m5
     pmaddubsw                m4, k4k5
     pmaddubsw                m5, k4k5
-    paddsw                   m8, m4
-    paddsw                   m9, m5
+    paddw                    m8, m4
+    paddw                    m9, m5
+    paddw                    m8, krd
+    paddw                    m9, krd
     mova                     m4, m6
     mova                     m5, m7
     pmaddubsw                m6, k6k7
     pmaddubsw                m7, k6k7
-    paddsw                  m10, m6
-    paddsw                  m11, m7
-    paddsw                   m8, m10
-    paddsw                   m9, m11
+    paddw                   m10, m6
+    paddw                   m11, m7
+    psubsw                   m8, m10
+    psubsw                   m9, m11
     mova                     m6, m14
-    paddsw                   m8, krd
-    paddsw                   m9, krd
     psraw                    m8, 7
     psraw                    m9, 7
 %ifidn %2, 4
@@ -555,10 +563,10 @@ cglobal filter_block1d%2_%1, 6, NUM_GENERAL_REG_USED, 15, LOCAL_VARS_SIZE, \
     pmaddubsw                m2, k2k3
     pmaddubsw                m4, k4k5
     pmaddubsw                m6, k6k7
-    paddsw                   m0, m4
-    paddsw                   m2, m6
-    paddsw                   m0, m2
-    paddsw                   m0, krd
+    paddw                    m0, m4
+    paddw                    m0, krd
+    paddw                    m2, m6
+    psubsw                   m0, m2
     psraw                    m0, 7
     packuswb                 m0, m0
 %ifidn %1, v8_avg
@@ -620,25 +628,25 @@ cglobal filter_block1d16_%1, 6, NUM_GENERAL_REG_USED, 16, LOCAL_VARS_SIZE, \
     pmaddubsw                m6, k6k7
     movh                     m5, [src1q + sstrideq * 2 + 8] ;D
     punpcklbw                m7, m5                         ;C D
-    paddsw                   m2, m6
+    paddw                    m2, m6
     pmaddubsw                m3, k0k1
     movh                     m1, [srcq + sstrideq * 4 + 8]  ;E
-    paddsw                   m0, m4
+    paddw                    m0, m4
+    paddw                    m0, krd
     pmaddubsw                m7, k2k3
     movh                     m6, [src1q + sstrideq * 4 + 8] ;F
     punpcklbw                m1, m6                         ;E F
-    paddsw                   m0, m2
-    paddsw                   m0, krd
+    psubsw                   m0, m2
     movh                     m2, [srcq + sstride6q + 8]     ;G
     pmaddubsw                m1, k4k5
     movh                     m5, [src1q + sstride6q + 8]    ;H
     psraw                    m0, 7
     punpcklbw                m2, m5                         ;G H
     pmaddubsw                m2, k6k7
-    paddsw                   m7, m2
-    paddsw                   m3, m1
-    paddsw                   m3, m7
-    paddsw                   m3, krd
+    paddw                    m7, m2
+    paddw                    m3, m1
+    paddw                    m3, krd
+    psubsw                   m3, m7
     psraw                    m3, 7
     packuswb                 m0, m3
 
@@ -689,29 +697,29 @@ cglobal filter_block1d16_%1, 6, NUM_GENERAL_REG_USED, 16, LOCAL_VARS_SIZE, \
     pmaddubsw               m14, m8, k4k5
     pmaddubsw               m15, m4, k2k3
     mova                     m4, m8
-    paddsw                  m13, m14
+    paddw                   m13, m14
+    paddw                   m13, krd
     movu                     m3, [srcq + sstrideq]          ;H
     lea                    srcq, [srcq + sstrideq * 2]
     punpcklbw               m14, m2, m3                     ;G H
     mova                     m8, m14
     pmaddubsw               m14, k6k7
-    paddsw                  m15, m14
-    paddsw                  m13, m15
-    paddsw                  m13, krd
+    paddw                   m15, m14
+    psubsw                  m13, m15
     psraw                   m13, 7
 
     pmaddubsw               m14, m1, k0k1
     pmaddubsw                m1, m9, k4k5
     pmaddubsw               m15, m5, k2k3
-    paddsw                  m14, m1
+    paddw                   m14, m1
+    paddw                   m14, krd
     mova                     m1, m5
     mova                     m5, m9
     punpckhbw                m2, m3                         ;G H
     mova                     m9, m2
     pmaddubsw                m2, k6k7
-    paddsw                  m15, m2
-    paddsw                  m14, m15
-    paddsw                  m14, krd
+    paddw                   m15, m2
+    psubsw                  m14, m15
     psraw                   m14, 7
     packuswb                m13, m14
 %ifidn %1, v8_avg
@@ -723,16 +731,16 @@ cglobal filter_block1d16_%1, 6, NUM_GENERAL_REG_USED, 16, LOCAL_VARS_SIZE, \
     pmaddubsw               m15, tmp0, k0k1
     pmaddubsw               m14, m10, k4k5
     pmaddubsw               m13, m6, k2k3
-    paddsw                  m15, m14
+    paddw                   m15, m14
+    paddw                   m15, krd
     mova                   tmp0, m6
     mova                     m6, m10
     movu                     m2, [srcq]                     ;G next iter
     punpcklbw               m14, m3, m2                     ;G H next iter
     mova                    m10, m14
     pmaddubsw               m14, k6k7
-    paddsw                  m13, m14
-    paddsw                  m15, m13
-    paddsw                  m15, krd
+    paddw                   m13, m14
+    psubsw                  m15, m13
     psraw                   m15, 7
 
     pmaddubsw               m14, tmp1, k0k1
@@ -740,13 +748,13 @@ cglobal filter_block1d16_%1, 6, NUM_GENERAL_REG_USED, 16, LOCAL_VARS_SIZE, \
     pmaddubsw               m13, m7, k2k3
     mova                     m7, m11
     pmaddubsw               m11, k4k5
-    paddsw                  m14, m11
+    paddw                   m14, m11
+    paddw                   m14, krd
     punpckhbw                m3, m2                         ;G H next iter
     mova                    m11, m3
     pmaddubsw                m3, k6k7
-    paddsw                  m13, m3
-    paddsw                  m14, m13
-    paddsw                  m14, krd
+    paddw                   m13, m3
+    psubsw                  m14, m13
     psraw                   m14, 7
     packuswb                m15, m14
 %ifidn %1, v8_avg
@@ -771,14 +779,14 @@ cglobal filter_block1d16_%1, 6, NUM_GENERAL_REG_USED, 16, LOCAL_VARS_SIZE, \
     pmaddubsw                m9, k4k5
     pmaddubsw                m6, k6k7
     pmaddubsw                m2, k6k7
-    paddsw                   m0, m8
-    paddsw                   m1, m9
-    paddsw                   m4, m6
-    paddsw                   m5, m2
-    paddsw                   m0, m4
-    paddsw                   m1, m5
-    paddsw                   m0, krd
-    paddsw                   m1, krd
+    paddw                    m0, m8
+    paddw                    m1, m9
+    paddw                    m0, krd
+    paddw                    m1, krd
+    paddw                    m4, m6
+    paddw                    m5, m2
+    psubsw                   m0, m4
+    psubsw                   m1, m5
     psraw                    m0, 7
     psraw                    m1, 7
     packuswb                 m0, m1
