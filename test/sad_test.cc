@@ -892,6 +892,7 @@ INSTANTIATE_TEST_CASE_P(AVX2, SADavgTest, ::testing::ValuesIn(avg_avx2_tests));
 const SadMxNx4Param x4d_avx2_tests[] = {
   SadMxNx4Param(64, 64, &vpx_sad64x64x4d_avx2),
   SadMxNx4Param(32, 32, &vpx_sad32x32x4d_avx2),
+  SadMxNx4Param(8, 8, &vpx_sad8x8x4d_avx2),
 };
 INSTANTIATE_TEST_CASE_P(AVX2, SADx4Test, ::testing::ValuesIn(x4d_avx2_tests));
 #endif  // HAVE_AVX2
