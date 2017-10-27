@@ -21,6 +21,7 @@ void vpx_sad8x8x4d_avx2(const uint8_t *src, int src_stride,
   int i;
   const uint8_t *ref0, *ref1, *ref2, *ref3;
   const __m128i rows = _mm_set_epi16(0, 0, 0, 1, 0, 2, 0, 3);
+  // TODO: use 32 bits or have a special case
   src_strides = _mm_broadcastw_epi16(_mm_cvtsi32_si128(src_stride));
   ref_strides = _mm_broadcastw_epi16(_mm_cvtsi32_si128(ref_stride));
   src_strides = _mm_madd_epi16(src_strides, rows);
@@ -39,12 +40,7 @@ void vpx_sad8x8x4d_avx2(const uint8_t *src, int src_stride,
     ref0_reg = _mm256_i32gather_epi64((const long long *)ref0, ref_strides, 1);
     ref1_reg = _mm256_i32gather_epi64((const long long *)ref1, ref_strides, 1);
     ref2_reg = _mm256_i32gather_epi64((const long long *)ref2, ref_strides, 1);
-    ref3_reg = _mm256_i32gather_epi64((const long long *)ref3, ref_strides, 1);    
-    /*src_reg = _mm256_loadu_si256((const __m256i *)src);
-    ref0_reg = _mm256_loadu_si256((const __m256i *)ref0);
-    ref1_reg = _mm256_loadu_si256((const __m256i *)ref1);
-    ref2_reg = _mm256_loadu_si256((const __m256i *)ref2);
-    ref3_reg = _mm256_loadu_si256((const __m256i *)ref3);*/
+    ref3_reg = _mm256_i32gather_epi64((const long long *)ref3, ref_strides, 1);
     // sum of the absolute differences between every ref-i to src
     ref0_reg = _mm256_sad_epu8(ref0_reg, src_reg);
     ref1_reg = _mm256_sad_epu8(ref1_reg, src_reg);
@@ -89,6 +85,80 @@ void vpx_sad8x8x4d_avx2(const uint8_t *src, int src_stride,
   }
 }
 
+void vpx_sad16x16x4d_avx2(const uint8_t *src, int src_stride,
+                          const uint8_t *const ref[4], int ref_stride,
+                          uint32_t res[4]) {
+  __m256i src_reg, ref0_reg, ref1_reg, ref2_reg, ref3_reg;
+  __m256i sum_ref0, sum_ref1, sum_ref2, sum_ref3;
+  __m256i sum_mlow, sum_mhigh;
+  __m128i src_strides, ref_strides;
+  int i;
+  const uint8_t *ref0, *ref1, *ref2, *ref3;
+  const __m128i offset = _mm_set_epi32(0, 8, 0, 8);
+  src_strides = _mm_cvtsi32_si128(src_stride);
+  ref_strides = _mm_cvtsi32_si128(ref_stride);
+  src_strides = _mm_unpacklo_epi32(src_strides, src_strides);
+  ref_strides = _mm_unpacklo_epi32(ref_strides, ref_strides);
+  src_strides = _mm_add_epi32(src_strides, offset);
+  ref_strides = _mm_add_epi32(ref_strides, offset);
+  ref0 = ref[0];
+  ref1 = ref[1];
+  ref2 = ref[2];
+  ref3 = ref[3];
+  sum_ref0 = _mm256_set1_epi16(0);
+  sum_ref1 = _mm256_set1_epi16(0);
+  sum_ref2 = _mm256_set1_epi16(0);
+  sum_ref3 = _mm256_set1_epi16(0);
+  for (i = 0; i < 16; i += 2) {
+    // load src and all refs
+    src_reg = _mm256_i32gather_epi64((const long long *)src, src_strides, 1);
+    ref0_reg = _mm256_i32gather_epi64((const long long *)ref0, ref_strides, 1);
+    ref1_reg = _mm256_i32gather_epi64((const long long *)ref1, ref_strides, 1);
+    ref2_reg = _mm256_i32gather_epi64((const long long *)ref2, ref_strides, 1);
+    ref3_reg = _mm256_i32gather_epi64((const long long *)ref3, ref_strides, 1);
+    // sum of the absolute differences between every ref-i to src
+    ref0_reg = _mm256_sad_epu8(ref0_reg, src_reg);
+    ref1_reg = _mm256_sad_epu8(ref1_reg, src_reg);
+    ref2_reg = _mm256_sad_epu8(ref2_reg, src_reg);
+    ref3_reg = _mm256_sad_epu8(ref3_reg, src_reg);
+    // sum every ref-i
+    sum_ref0 = _mm256_add_epi32(sum_ref0, ref0_reg);
+    sum_ref1 = _mm256_add_epi32(sum_ref1, ref1_reg);
+    sum_ref2 = _mm256_add_epi32(sum_ref2, ref2_reg);
+    sum_ref3 = _mm256_add_epi32(sum_ref3, ref3_reg);
+
+    src += src_stride*2;
+    ref0 += ref_stride*2;
+    ref1 += ref_stride*2;
+    ref2 += ref_stride*2;
+    ref3 += ref_stride*2;
+  }
+  {
+    __m128i sum;
+    // in sum_ref-i the result is saved in the first 4 bytes
+    // the other 4 bytes are zeroed.
+    // sum_ref1 and sum_ref3 are shifted left by 4 bytes
+    sum_ref1 = _mm256_slli_si256(sum_ref1, 4);
+    sum_ref3 = _mm256_slli_si256(sum_ref3, 4);
+
+    // merge sum_ref0 and sum_ref1 also sum_ref2 and sum_ref3
+    sum_ref0 = _mm256_or_si256(sum_ref0, sum_ref1);
+    sum_ref2 = _mm256_or_si256(sum_ref2, sum_ref3);
+
+    // merge every 64 bit from each sum_ref-i
+    sum_mlow = _mm256_unpacklo_epi64(sum_ref0, sum_ref2);
+    sum_mhigh = _mm256_unpackhi_epi64(sum_ref0, sum_ref2);
+
+    // add the low 64 bit to the high 64 bit
+    sum_mlow = _mm256_add_epi32(sum_mlow, sum_mhigh);
+
+    // add the low 128 bit to the high 128 bit
+    sum = _mm_add_epi32(_mm256_castsi256_si128(sum_mlow),
+                        _mm256_extractf128_si256(sum_mlow, 1));
+
+    _mm_storeu_si128((__m128i *)(res), sum);
+  }
+}
 
 void vpx_sad32x32x4d_avx2(const uint8_t *src, int src_stride,
                           const uint8_t *const ref[4], int ref_stride,
