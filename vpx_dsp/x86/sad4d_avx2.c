@@ -11,6 +11,102 @@
 #include "./vpx_dsp_rtcd.h"
 #include "vpx/vpx_integer.h"
 
+#define loadx2(ptr, stride) _mm256_inserti128_si256( \
+_mm256_castsi128_si256(_mm_loadu_si128((const __m128i *)(ptr))), \
+_mm_loadu_si128((const __m128i *)((ptr)+(stride))), 1 \
+)
+
+#define XYZ(x) \
+    src_reg = loadx2(src + x*src_stride, src_stride);\
+    ref0_reg = loadx2(ref0 + x*ref_stride, ref_stride);\
+    ref1_reg = loadx2(ref1 + x*ref_stride, ref_stride);\
+    ref2_reg = loadx2(ref2 + x*ref_stride, ref_stride);\
+    ref3_reg = loadx2(ref3 + x*ref_stride, ref_stride);\
+    ref0_reg = _mm256_sad_epu8(ref0_reg, src_reg);\
+    ref1_reg = _mm256_sad_epu8(ref1_reg, src_reg);\
+    ref2_reg = _mm256_sad_epu8(ref2_reg, src_reg);\
+    ref3_reg = _mm256_sad_epu8(ref3_reg, src_reg);\
+    sum_ref0 = _mm256_add_epi32(sum_ref0, ref0_reg);\
+    sum_ref1 = _mm256_add_epi32(sum_ref1, ref1_reg);\
+    sum_ref2 = _mm256_add_epi32(sum_ref2, ref2_reg);\
+    sum_ref3 = _mm256_add_epi32(sum_ref3, ref3_reg);
+
+void vpx_sad16x16x4d_avx2(const uint8_t *src, int src_stride,
+                          const uint8_t *const ref[4], int ref_stride,
+                          uint32_t res[4]) {
+  __m256i src_reg, ref0_reg, ref1_reg, ref2_reg, ref3_reg;
+  __m128i src_reghi, ref0_reglo, ref0_reghi;
+  __m256i sum_ref0, sum_ref1, sum_ref2, sum_ref3;
+  __m256i sum_mlow, sum_mhigh;
+  int i;
+  const uint8_t *ref0, *ref1, *ref2, *ref3;
+
+  ref0 = ref[0];
+  ref1 = ref[1];
+  ref2 = ref[2];
+  ref3 = ref[3];
+  sum_ref0 = _mm256_set1_epi16(0);
+  sum_ref1 = _mm256_set1_epi16(0);
+  sum_ref2 = _mm256_set1_epi16(0);
+  sum_ref3 = _mm256_set1_epi16(0);
+  for (i = 0; i < 16; i+=2) {
+    // load src and all refs
+    src_reg = _mm256_castsi128_si256(_mm_loadu_si128((const __m128i *)src));
+    ref0_reglo = _mm_loadu_si128((const __m128i *)ref0);
+    ref1_reg = loadx2(ref1, ref_stride);
+    ref0_reglo = _mm_sad_epu8(ref0_reglo, _mm256_castsi256_si128(src_reg));
+    ref2_reg = loadx2(ref2, ref_stride);
+    src_reghi = _mm_loadu_si128((const __m128i *)(src + src_stride));
+    ref0_reghi = _mm_loadu_si128((const __m128i *)(ref0 + ref_stride));
+    ref0_reghi = _mm_sad_epu8(ref0_reghi, src_reghi);
+    src_reg = _mm256_inserti128_si256(src_reg, src_reghi, 1);
+    sum_ref0 = _mm256_add_epi32(sum_ref0, _mm256_castsi128_si256(ref0_reghi));
+    ref3_reg = loadx2(ref3, ref_stride);
+    sum_ref0 = _mm256_add_epi32(sum_ref0, _mm256_castsi128_si256(ref0_reglo));
+    // sum of the absolute differences between every ref-i to src
+    //ref0_reg = _mm256_sad_epu8(ref0_reg, src_reg);
+    ref1_reg = _mm256_sad_epu8(ref1_reg, src_reg);
+    ref2_reg = _mm256_sad_epu8(ref2_reg, src_reg);
+    ref3_reg = _mm256_sad_epu8(ref3_reg, src_reg);
+    // sum every ref-i
+    //sum_ref0 = _mm256_add_epi32(sum_ref0, ref0_reg);
+    sum_ref1 = _mm256_add_epi32(sum_ref1, ref1_reg);
+    sum_ref2 = _mm256_add_epi32(sum_ref2, ref2_reg);
+    sum_ref3 = _mm256_add_epi32(sum_ref3, ref3_reg);
+
+    src += src_stride*2;
+    ref0 += ref_stride*2;
+    ref1 += ref_stride*2;
+    ref2 += ref_stride*2;
+    ref3 += ref_stride*2;
+  }
+  {
+    __m128i sum;
+    // in sum_ref-i the result is saved in the first 4 bytes
+    // the other 4 bytes are zeroed.
+    // sum_ref1 and sum_ref3 are shifted left by 4 bytes
+    sum_ref1 = _mm256_slli_si256(sum_ref1, 4);
+    sum_ref3 = _mm256_slli_si256(sum_ref3, 4);
+
+    // merge sum_ref0 and sum_ref1 also sum_ref2 and sum_ref3
+    sum_ref0 = _mm256_or_si256(sum_ref0, sum_ref1);
+    sum_ref2 = _mm256_or_si256(sum_ref2, sum_ref3);
+
+    // merge every 64 bit from each sum_ref-i
+    sum_mlow = _mm256_unpacklo_epi64(sum_ref0, sum_ref2);
+    sum_mhigh = _mm256_unpackhi_epi64(sum_ref0, sum_ref2);
+
+    // add the low 64 bit to the high 64 bit
+    sum_mlow = _mm256_add_epi32(sum_mlow, sum_mhigh);
+
+    // add the low 128 bit to the high 128 bit
+    sum = _mm_add_epi32(_mm256_castsi256_si128(sum_mlow),
+                        _mm256_extractf128_si256(sum_mlow, 1));
+
+    _mm_storeu_si128((__m128i *)(res), sum);
+  }
+}
+
 void vpx_sad32x32x4d_avx2(const uint8_t *src, int src_stride,
                           const uint8_t *const ref[4], int ref_stride,
                           uint32_t res[4]) {
