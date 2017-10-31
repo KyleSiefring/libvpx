@@ -413,7 +413,7 @@ check_gcc_machine_options() {
     flags="$flags -m$opt"
   done
 
-  if enabled gcc && ! disabled "$feature" && ! check_cflags "$flags"; then
+  if enabled gcc && ! disabled "$feature" && ! check_cflags $flags; then
     RTCD_OPTIONS="${RTCD_OPTIONS}--disable-$feature "
   else
     soft_enable "$feature"
