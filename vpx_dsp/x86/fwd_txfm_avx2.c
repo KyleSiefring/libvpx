@@ -10,6 +10,20 @@
 
 #include "./vpx_config.h"
 
+#define DCT_HIGH_BIT_DEPTH 0
+#define FDCT16x16_2D_AVX2 vpx_fdct16x16_avx2
+#include "vpx_dsp/x86/fwd_dct16x16_impl_avx2.h"  // NOLINT
+#undef FDCT16x16_2D_AVX2
+#undef DCT_HIGH_BIT_DEPTH
+
+#if CONFIG_VP9_HIGHBITDEPTH
+#define DCT_HIGH_BIT_DEPTH 1
+#define FDCT16x16_2D_AVX2 vpx_highbd_fdct16x16_avx2
+#include "vpx_dsp/x86/fwd_dct16x16_impl_avx2.h"  // NOLINT
+#undef FDCT16x16_2D_AVX2
+#undef DCT_HIGH_BIT_DEPTH
+#endif  // CONFIG_VP9_HIGHBITDEPTH
+
 #define FDCT32x32_2D_AVX2 vpx_fdct32x32_rd_avx2
 #define FDCT32x32_HIGH_PRECISION 0
 #include "vpx_dsp/x86/fwd_dct32x32_impl_avx2.h"
