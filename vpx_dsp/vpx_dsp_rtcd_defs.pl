@@ -714,10 +714,10 @@ specialize qw/vpx_subtract_block neon msa mmi sse2/;
 # Single block SAD
 #
 add_proto qw/unsigned int vpx_sad64x64/, "const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride";
-specialize qw/vpx_sad64x64 neon avx2 msa sse2 vsx mmi/;
+specialize qw/vpx_sad64x64 neon avx512 avx2 msa sse2 vsx mmi/;
 
 add_proto qw/unsigned int vpx_sad64x32/, "const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride";
-specialize qw/vpx_sad64x32 neon avx2 msa sse2 vsx mmi/;
+specialize qw/vpx_sad64x32 neon avx512 avx2 msa sse2 vsx mmi/;
 
 add_proto qw/unsigned int vpx_sad32x64/, "const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride";
 specialize qw/vpx_sad32x64 neon avx2 msa sse2 vsx mmi/;
@@ -796,10 +796,10 @@ if (vpx_config("CONFIG_VP9_ENCODER") eq "yes") {
 }  # CONFIG_VP9_ENCODER
 
 add_proto qw/unsigned int vpx_sad64x64_avg/, "const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride, const uint8_t *second_pred";
-specialize qw/vpx_sad64x64_avg neon avx2 msa sse2 vsx mmi/;
+specialize qw/vpx_sad64x64_avg neon avx512 avx2 msa sse2 vsx mmi/;
 
 add_proto qw/unsigned int vpx_sad64x32_avg/, "const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride, const uint8_t *second_pred";
-specialize qw/vpx_sad64x32_avg neon avx2 msa sse2 vsx mmi/;
+specialize qw/vpx_sad64x32_avg neon avx512 avx2 msa sse2 vsx mmi/;
 
 add_proto qw/unsigned int vpx_sad32x64_avg/, "const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride, const uint8_t *second_pred";
 specialize qw/vpx_sad32x64_avg neon avx2 msa sse2 vsx mmi/;
