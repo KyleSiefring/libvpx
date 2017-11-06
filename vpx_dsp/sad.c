@@ -31,6 +31,9 @@ static INLINE unsigned int sad(const uint8_t *a, int a_stride, const uint8_t *b,
   return sad;
 }
 
+#include <stdio.h>
+#include <stdlib.h>
+
 static void od_mc_hadamard_1d(int32_t *diff,
  int n, int stride0, int stride1){
   int i;
@@ -94,18 +97,21 @@ static INLINE unsigned int satd_thing(const uint8_t *a, int a_stride, const uint
       p[(x >> 1)] = a[x] - b[x];
     }
 
-    p += width;
+    p += width >> 1;
     a += a_stride*2;
     b += b_stride*2;
   }
   /*Horizontal transform.*/
-  od_mc_hadamard_1d(work, width, width, 1);
+  od_mc_hadamard_1d(work, width>>1, width>>1, 1);
   /*Vertical transform.*/
-  od_mc_hadamard_1d(work, width, 1, width);
+  od_mc_hadamard_1d(work, width>>1, 1, width>>1);
   satd = 0;
-  for (i = 0; i < width*width; i++) satd += abs(work[i]);
+  for (i = 0; i < (width*width) >> 2; i++) satd += abs(work[i]);
   return satd;
 }
+
+static int count = 0;
+double total = 0;
 
 static INLINE unsigned int sad_satd(const uint8_t *a, int a_stride, const uint8_t *b,
                                int b_stride, int width, int height) {
@@ -120,7 +126,11 @@ static INLINE unsigned int sad_satd(const uint8_t *a, int a_stride, const uint8_
     b += b_stride;
   }
   if (sadB == 0) {return sad;}
-  return (sad*satd)/(sadB);
+/*total += ((double)satd) / sadB;
+count ++;
+if (count == 0x10000) {fprintf(stderr, "\n%f\n", total/count); exit(0);}*/
+
+  return (sad*satd)/(sadB*6);
 }
 
 #define sad_satdMxN(m, n)                                                   \
