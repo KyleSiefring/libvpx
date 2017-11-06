@@ -2204,6 +2204,16 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
   cpi->fn_ptr[BT].svaf = SVAF;                    \
   cpi->fn_ptr[BT].sdx4df = SDX4DF;
 
+#define BFP_X(BT, SDF, SDAF, VF, SVF, SVAF, SDX4DF, STDF, STDX4DF) \
+  cpi->fn_ptr[BT].sdf = SDF;                      \
+  cpi->fn_ptr[BT].sdaf = SDAF;                    \
+  cpi->fn_ptr[BT].vf = VF;                        \
+  cpi->fn_ptr[BT].svf = SVF;                      \
+  cpi->fn_ptr[BT].svaf = SVAF;                    \
+  cpi->fn_ptr[BT].sdx4df = SDX4DF;                \
+  cpi->fn_ptr[BT].stdf = STDF;                    \
+  cpi->fn_ptr[BT].stdx4df = STDX4DF;                \
+
   BFP(BLOCK_32X16, vpx_sad32x16, vpx_sad32x16_avg, vpx_variance32x16,
       vpx_sub_pixel_variance32x16, vpx_sub_pixel_avg_variance32x16,
       vpx_sad32x16x4d)
@@ -2228,9 +2238,12 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
       vpx_sub_pixel_variance64x64, vpx_sub_pixel_avg_variance64x64,
       vpx_sad64x64x4d)
 
-  BFP(BLOCK_16X16, vpx_sad16x16, vpx_sad16x16_avg, vpx_variance16x16,
+//  BFP(BLOCK_16X16, vpx_sad16x16, vpx_sad16x16_avg, vpx_variance16x16,
+//      vpx_sub_pixel_variance16x16, vpx_sub_pixel_avg_variance16x16,
+//      vpx_sad16x16x4d)
+BFP_X(BLOCK_16X16, vpx_sad16x16, vpx_sad16x16_avg, vpx_variance16x16,
       vpx_sub_pixel_variance16x16, vpx_sub_pixel_avg_variance16x16,
-      vpx_sad16x16x4d)
+      vpx_sad16x16x4d, vpx_sad_satd16x16, vpx_sad_satd16x16x4d)
 
   BFP(BLOCK_16X8, vpx_sad16x8, vpx_sad16x8_avg, vpx_variance16x8,
       vpx_sub_pixel_variance16x8, vpx_sub_pixel_avg_variance16x8,

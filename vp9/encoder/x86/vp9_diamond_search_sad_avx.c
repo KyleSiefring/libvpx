@@ -130,7 +130,12 @@ int vp9_diamond_search_sad_avx(const MACROBLOCK *x,
   assert(x->nmvjointsadcost[1] == x->nmvjointsadcost[3]);
 
   // Check the starting position
+  if (fn_ptr->stdf == 0 || 1) {
   best_sad = fn_ptr->sdf(what, what_stride, in_what, in_what_stride);
+  }
+  else {
+  best_sad = fn_ptr->stdf(what, what_stride, in_what, in_what_stride);
+  }
   best_sad += mvsad_err_cost(x, bmv, &fcenter_mv.as_mv, sad_per_bit);
 
   *num00 = 0;
@@ -193,8 +198,14 @@ int vp9_diamond_search_sad_avx(const MACROBLOCK *x,
 #endif
       }
 
+      if (fn_ptr->stdx4df == 0 || 1) {
       fn_ptr->sdx4df(what, what_stride, (const uint8_t **)&v_blocka[0],
                      in_what_stride, (uint32_t *)&v_sad_d);
+      }
+      else {
+      fn_ptr->stdx4df(what, what_stride, (const uint8_t **)&v_blocka[0],
+                     in_what_stride, (uint32_t *)&v_sad_d);
+      }
 
       // Look up the component cost of the residual motion vector
       {

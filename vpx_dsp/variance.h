@@ -25,6 +25,9 @@ extern "C" {
 typedef unsigned int (*vpx_sad_fn_t)(const uint8_t *a, int a_stride,
                                      const uint8_t *b_ptr, int b_stride);
 
+typedef unsigned int (*vpx_sad_satd_fn_t)(const uint8_t *a, int a_stride,
+                                     const uint8_t *b_ptr, int b_stride);
+
 typedef unsigned int (*vpx_sad_avg_fn_t)(const uint8_t *a_ptr, int a_stride,
                                          const uint8_t *b_ptr, int b_stride,
                                          const uint8_t *second_pred);
@@ -37,6 +40,10 @@ typedef void (*vpx_sad_multi_fn_t)(const uint8_t *a, int a_stride,
                                    unsigned int *sad_array);
 
 typedef void (*vpx_sad_multi_d_fn_t)(const uint8_t *a, int a_stride,
+                                     const uint8_t *const b_array[],
+                                     int b_stride, unsigned int *sad_array);
+
+typedef void (*vpx_sad_satd_multi_d_fn_t)(const uint8_t *a, int a_stride,
                                      const uint8_t *const b_array[],
                                      int b_stride, unsigned int *sad_array);
 
@@ -75,6 +82,8 @@ typedef struct vp9_variance_vtable {
   vpx_subpixvariance_fn_t svf;
   vpx_subp_avg_variance_fn_t svaf;
   vpx_sad_multi_d_fn_t sdx4df;
+  vpx_sad_satd_fn_t stdf;
+  vpx_sad_satd_multi_d_fn_t stdx4df;
 } vp9_variance_fn_ptr_t;
 #endif  // CONFIG_VP9
 
