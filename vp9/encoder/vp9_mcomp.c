@@ -135,10 +135,10 @@ void vp9_init_dsmotion_compensation(search_site_config *cfg, int stride) {
   cfg->total_steps = ss_count / cfg->searches_per_step;
 }
 
+#if 1
 void vp9_init3smotion_compensation(search_site_config *cfg, int stride) {
   int len;
   int ss_count = 0;
-
   for (len = MAX_FIRST_STEP; len > 0; len /= 2) {
     // Generate offsets for 8 search sites per step.
     const MV ss_mvs[8] = { { -len, 0 },   { len, 0 },     { 0, -len },
@@ -154,6 +154,41 @@ void vp9_init3smotion_compensation(search_site_config *cfg, int stride) {
   cfg->searches_per_step = 8;
   cfg->total_steps = ss_count / cfg->searches_per_step;
 }
+#else
+void vp9_init3smotion_compensation(search_site_config *cfg, int stride) {
+  int len;
+  int ss_count = 0;
+  for (len = MAX_FIRST_STEP; len > 2; len /= 2) {
+    // Generate offsets for 8 search sites per step.
+    const MV ss_mvs[8] = { { -len, 0 },   { len, 0 },     { 0, -len },
+                           { 0, len },    { -len, -len }, { -len, len },
+                           { len, -len }, { len, len } };
+    int i;
+    for (i = 0; i < 8; ++i, ++ss_count) {
+      cfg->ss_mv[ss_count] = ss_mvs[i];
+      cfg->ss_os[ss_count] = ss_mvs[i].row * stride + ss_mvs[i].col;
+    }
+  }
+  cfg->searches_per_step = 8;
+  cfg->total_steps = ss_count / cfg->searches_per_step + 1;
+
+  {
+    len=1;
+    // Generate offsets for 8 search sites per step.
+    int i, j;
+    for (i = -3; i <= 3; ++i) {
+      for (j = -3; j <= 3; ++j) {
+        if (!(i == 0 && j == 0)) {
+          const MV tmp = {i*len, j*len};
+          cfg->ss_mv[ss_count] = tmp;
+          cfg->ss_os[ss_count] = tmp.row * stride + tmp.col;
+          ++ss_count;
+        }
+      }
+    }
+  }
+}
+#endif
 
 // convert motion vector component to offset for sv[a]f calc
 static INLINE int sp(int x) { return x & 7; }

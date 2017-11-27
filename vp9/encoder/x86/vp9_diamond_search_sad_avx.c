@@ -18,6 +18,19 @@
 #include "vp9/encoder/vp9_encoder.h"
 #include "vpx_ports/mem.h"
 
+#include "stdio.h"
+#include "vpx_dsp/x86/static.h"
+
+void vpx_sad16x16x4d_avx2(const uint8_t *src, int src_stride,
+                          const uint8_t *const ref[4], int ref_stride,
+                          uint32_t res[4]);
+
+static uint64_t same = 0, close = 0, far = 0, total = 0;
+static uint64_t sum_pop, opt_pop;
+
+static __uint128_t total_sad;
+static __uint64_t call_count;
+
 #ifdef __GNUC__
 #define LIKELY(v) __builtin_expect(v, 1)
 #define UNLIKELY(v) __builtin_expect(v, 0)
@@ -243,6 +256,73 @@ int vp9_diamond_search_sad_avx(const MACROBLOCK *x,
       // by or'ing in the comparison mask, this way the minimum search won't
       // pick them.
       v_sad_d = _mm_or_si128(v_sad_d, v_outside_d);
+  {
+    __m128i pop = _mm_and_si128(_mm_set1_epi32(1), v_inside_d);
+    pop = _mm_add_epi32(pop, _mm_srli_si128(pop, 8));
+    pop = _mm_add_epi32(pop, _mm_srli_si128(pop, 4));
+    sum_pop += _mm_cvtsi128_si32(pop);
+    opt_pop += 4;
+  }
+  if (fn_ptr->sdx4df == &vpx_sad16x16x4d_avx2) {
+    __m128i tmp;
+    int k;
+    uint32_t res[4];
+    uint32_t x[4];
+    uint32_t best_sadX;
+    int best_index;
+    int best_index_x;
+    tmp = _mm_slli_epi32(other, 2);
+    tmp = _mm_or_si128(_mm_add_epi32(v_cost_d, tmp), v_outside_d);
+    _mm_storeu_si128((__m128i *)res, v_sad_d);
+    _mm_storeu_si128((__m128i *)x, tmp);
+    best_index = 0;
+    best_sadX = res[0];
+    for (k = 1; k < 4; k++) {
+      if (res[k] < best_sadX) {
+      best_index = k;
+      best_sadX = res[k];
+      }
+    }
+    best_index_x = 0;
+    best_sadX = x[0];
+    for (k = 1; k < 4; k++) {
+      if (x[k] < best_sadX) {
+        best_index_x = k;
+        best_sadX = x[k];
+      }
+    }
+    total++;
+    if (best_index == best_index_x) {
+      same++;
+      close++;
+      far++;
+    }
+    x[best_index_x] = (1 << 30);
+    best_index_x = 0;
+    best_sadX = x[0];
+    for (k = 1; k < 4; k++) {
+      if (x[k] < best_sadX) {
+        best_index_x = k;
+        best_sadX = x[k];
+      }
+    }
+    if (best_index == best_index_x) {
+      close++;
+      far++;
+    }
+    x[best_index_x] = (1 << 30);
+    best_index_x = 0;
+    best_sadX = x[0];
+    for (k = 1; k < 4; k++) {
+      if (x[k] < best_sadX) {
+        best_index_x = k;
+        best_sadX = x[k];
+      }
+    }
+    if (best_index == best_index_x) {
+      far++;
+    }
+  }
 
       // Find the minimum value and index horizontally in v_sad_d
       {
@@ -305,6 +385,15 @@ int vp9_diamond_search_sad_avx(const MACROBLOCK *x,
     }
   }
 
+if (fn_ptr->sdx4df == &vpx_sad16x16x4d_avx2) {
+  total_sad += best_sad;
+  call_count++;
+  if ((call_count & 0xFFFFF) == 0) {
+	  fprintf(stderr, "\naverage_sad: %f\n", (double)total_sad/call_count);
+    fprintf(stderr, "same: %f close: %f far: %f\n", (double)same/total, (double)close/total, (double)far/total);
+    fprintf(stderr, "sad efficiency: %f\n", (double)sum_pop/opt_pop);
+  }
+}
   *best_mv = bmv.as_mv;
   return best_sad;
 }
