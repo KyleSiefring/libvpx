@@ -1392,7 +1392,8 @@ INSTANTIATE_TEST_CASE_P(
                       VarianceParams(6, 5, &vpx_variance64x32_avx2),
                       VarianceParams(5, 5, &vpx_variance32x32_avx2),
                       VarianceParams(5, 4, &vpx_variance32x16_avx2),
-                      VarianceParams(4, 4, &vpx_variance16x16_avx2)));
+                      VarianceParams(4, 4, &vpx_variance16x16_avx2),
+                      VarianceParams(3, 3, &vpx_variance8x8_avx2)));
 
 INSTANTIATE_TEST_CASE_P(
     AVX2, VpxSubpelVarianceTest,

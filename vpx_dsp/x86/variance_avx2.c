@@ -11,6 +11,7 @@
 #include <immintrin.h>  // AVX2
 
 #include "./vpx_dsp_rtcd.h"
+#include "iacaMarks.h"
 
 /* clang-format off */
 DECLARE_ALIGNED(32, static const uint8_t, bilinear_filters_avx2[512]) = {
@@ -37,6 +38,73 @@ DECLARE_ALIGNED(32, static const int8_t, adjacent_sub_avx2[32]) = {
   1, -1,  1, -1,  1, -1,  1, -1,  1, -1,  1, -1,  1, -1,  1, -1
 };
 /* clang-format on */
+
+void vpx_get8x8var_avx2(const unsigned char *src_ptr, int source_stride,
+                          const unsigned char *ref_ptr, int recon_stride,
+                          unsigned int *sse, int *sum) {
+// insert for 64 bits doesn't work in 32 bit (I think)
+  unsigned int i, src_2strides, ref_2strides;
+  __m256i sum_reg = _mm256_setzero_si256();
+  __m256i sse_reg = _mm256_setzero_si256();
+  // process two 16 byte locations in a 256 bit register
+  src_2strides = source_stride << 2;
+  ref_2strides = recon_stride << 2;
+  for (i = 0; i < 2; ++i) {
+    // convert up values in 128 bit registers across lanes
+    const __m256i src0 =
+        _mm256_cvtepu8_epi16(
+_mm_insert_epi64(
+_mm_loadl_epi64((__m128i const *)(src_ptr + 0 * source_stride)),
+((long long *)(src_ptr + 1 * source_stride))[0], 1
+)
+);
+    const __m256i src1 = _mm256_cvtepu8_epi16(
+_mm_insert_epi64(
+_mm_loadl_epi64((__m128i const *)(src_ptr + 2 * source_stride)),
+((long long *)(src_ptr + 3 * source_stride))[0], 1
+)
+);
+    const __m256i ref0 = _mm256_cvtepu8_epi16(
+_mm_insert_epi64(
+_mm_loadl_epi64((__m128i const *)(ref_ptr + 0 * recon_stride)),
+((long long *)(ref_ptr + 1 * recon_stride))[0], 1
+)
+);
+    const __m256i ref1 = _mm256_cvtepu8_epi16(
+_mm_insert_epi64(
+_mm_loadl_epi64((__m128i const *)(ref_ptr + 2 * recon_stride)),
+((long long *)(ref_ptr + 3 * recon_stride))[0], 1
+)
+);
+    const __m256i diff0 = _mm256_sub_epi16(src0, ref0);
+    const __m256i diff1 = _mm256_sub_epi16(src1, ref1);
+    const __m256i madd0 = _mm256_madd_epi16(diff0, diff0);
+    const __m256i madd1 = _mm256_madd_epi16(diff1, diff1);
+
+    // add to the running totals
+    sum_reg = _mm256_add_epi16(sum_reg, _mm256_add_epi16(diff0, diff1));
+    sse_reg = _mm256_add_epi32(sse_reg, _mm256_add_epi32(madd0, madd1));
+
+    src_ptr += src_2strides;
+    ref_ptr += ref_2strides;
+  }
+  {
+    // extract the low lane and add it to the high lane
+    __m128i sum_reg_128 = _mm_add_epi16(
+        _mm256_castsi256_si128(sum_reg), _mm256_extractf128_si256(sum_reg, 1));
+    __m128i sse_reg_128 = _mm_add_epi32(
+        _mm256_castsi256_si128(sse_reg), _mm256_extractf128_si256(sse_reg, 1));
+
+    sum_reg_128 = _mm_add_epi16(sum_reg_128, _mm_srli_si128(sum_reg_128, 8));
+    sum_reg_128 = _mm_add_epi16(sum_reg_128, _mm_srli_si128(sum_reg_128, 4));
+    sum_reg_128 = _mm_add_epi16(sum_reg_128, _mm_srli_si128(sum_reg_128, 2));
+    *sum = (int16_t)_mm_extract_epi16(sum_reg_128, 0);
+
+    sse_reg_128 = _mm_add_epi32(sse_reg_128, _mm_srli_si128(sse_reg_128, 8));
+    sse_reg_128 = _mm_add_epi32(sse_reg_128, _mm_srli_si128(sse_reg_128, 4));
+    *((int *)sse) = _mm_cvtsi128_si32(sse_reg_128);
+  }
+}
 
 void vpx_get16x16var_avx2(const unsigned char *src_ptr, int source_stride,
                           const unsigned char *ref_ptr, int recon_stride,
@@ -612,6 +680,14 @@ static void variance_avx2(const uint8_t *src, int src_stride,
       *sum += sum0;
     }
   }
+}
+
+unsigned int vpx_variance8x8_avx2(const uint8_t *src, int src_stride,
+                               const uint8_t *ref, int ref_stride,
+                               unsigned int *sse) {
+  int sum;
+  vpx_get8x8var_avx2(src, src_stride, ref, ref_stride, sse, &sum);
+  return *sse - (uint32_t)(((int64_t)sum * sum) >> 6);
 }
 
 unsigned int vpx_variance16x16_avx2(const uint8_t *src, int src_stride,
