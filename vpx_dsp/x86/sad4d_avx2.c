@@ -11,6 +11,70 @@
 #include "./vpx_dsp_rtcd.h"
 #include "vpx/vpx_integer.h"
 
+#include "iacaMarks.h"
+
+void vpx_sad8x8x4d_ssse41(const uint8_t *src, int src_stride,
+                          const uint8_t *const ref[4], int ref_stride,
+                          uint32_t res[4]) {
+//IACA_START
+#if ARCH_X86_64
+  __m128i src_reg, ref0_reg, ref1_reg, ref2_reg, ref3_reg;
+  __m128i sum_ref0, sum_ref1, sum_ref2, sum_ref3;
+  __m128i sum_mlow, sum_mhigh;
+  int i;
+  const uint8_t *ref0, *ref1, *ref2, *ref3;
+
+  ref0 = ref[0];
+  ref1 = ref[1];
+  ref2 = ref[2];
+  ref3 = ref[3];
+  sum_ref0 = _mm_set1_epi16(0);
+  sum_ref1 = _mm_set1_epi16(0);
+  sum_ref2 = _mm_set1_epi16(0);
+  sum_ref3 = _mm_set1_epi16(0);
+  for (i = 0; i < 8; i += 2) {
+    src_reg = _mm_loadl_epi64((const __m128i *)src);
+    src_reg = _mm_insert_epi64(src_reg, ((long long const *)(src + src_stride))[0], 1);
+    ref0_reg = _mm_loadl_epi64((const __m128i *)ref0);
+    ref0_reg = _mm_insert_epi64(ref0_reg, ((long long const *)(ref0 + ref_stride))[0], 1);
+    ref1_reg = _mm_loadl_epi64((const __m128i *)ref1);
+    ref1_reg = _mm_insert_epi64(ref1_reg, ((long long const *)(ref1 + ref_stride))[0], 1);
+    ref2_reg = _mm_loadl_epi64((const __m128i *)ref2);
+    ref2_reg = _mm_insert_epi64(ref2_reg, ((long long const *)(ref2 + ref_stride))[0], 1);
+    ref3_reg = _mm_loadl_epi64((const __m128i *)ref3);
+    ref3_reg = _mm_insert_epi64(ref3_reg, ((long long const *)(ref3 + ref_stride))[0], 1);
+    ref0_reg = _mm_sad_epu8(ref0_reg, src_reg);
+    ref1_reg = _mm_sad_epu8(ref1_reg, src_reg);
+    ref2_reg = _mm_sad_epu8(ref2_reg, src_reg);
+    ref3_reg = _mm_sad_epu8(ref3_reg, src_reg);
+    sum_ref0 = _mm_add_epi32(sum_ref0, ref0_reg);
+    sum_ref1 = _mm_add_epi32(sum_ref1, ref1_reg);
+    sum_ref2 = _mm_add_epi32(sum_ref2, ref2_reg);
+    sum_ref3 = _mm_add_epi32(sum_ref3, ref3_reg);
+    src += 2*src_stride;
+    ref0 += 2*ref_stride;
+    ref1 += 2*ref_stride;
+    ref2 += 2*ref_stride;
+    ref3 += 2*ref_stride;
+  }
+  {
+    sum_ref1 = _mm_bslli_si128(sum_ref1, 4);
+    sum_ref3 = _mm_bslli_si128(sum_ref3, 4);
+
+    sum_ref0 = _mm_or_si128(sum_ref0, sum_ref1);
+    sum_ref2 = _mm_or_si128(sum_ref2, sum_ref3);
+
+    sum_mlow = _mm_unpacklo_epi64(sum_ref0, sum_ref2);
+    sum_mhigh = _mm_unpackhi_epi64(sum_ref0, sum_ref2);
+
+    sum_mlow = _mm_add_epi32(sum_mlow, sum_mhigh);
+    _mm_storeu_si128((__m128i *)(res), sum_mlow);
+  }
+#else
+#endif
+//IACA_END
+}
+
 void vpx_sad32x32x4d_avx2(const uint8_t *src, int src_stride,
                           const uint8_t *const ref[4], int ref_stride,
                           uint32_t res[4]) {

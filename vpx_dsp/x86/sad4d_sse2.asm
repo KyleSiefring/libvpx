@@ -187,6 +187,10 @@ cglobal sad%1x%2x4d, 5, 8, 8, src, src_stride, ref1, ref_stride, \
 cglobal sad%1x%2x4d, 4, 7, 8, src, src_stride, ref1, ref_stride, \
                               ref2, ref3, ref4
 %endif
+%if %1 == %2 && %1 == 111
+    mov ebx, 111          ; Start marker bytes
+    db 0x64, 0x67, 0x90   ; Start marker bytes
+%endif
   movsxdifnidn src_strideq, src_strided
   movsxdifnidn ref_strideq, ref_strided
   mov                ref2q, [ref1q+gprsize*1]
@@ -212,6 +216,10 @@ cglobal sad%1x%2x4d, 4, 7, 8, src, src_stride, ref1, ref_stride, \
   movifnidn             r4, r4mp
   paddd                 m4, m5
   movu                [r4], m4
+%if %1 == %2 && %1 == 111
+    mov ebx, 222          ; End marker bytes
+    db 0x64, 0x67, 0x90   ; End marker bytes
+%endif
   RET
 %else
   movifnidn             r4, r4mp
@@ -219,6 +227,10 @@ cglobal sad%1x%2x4d, 4, 7, 8, src, src_stride, ref1, ref_stride, \
   pshufd            m7, m7, 0x08
   movq              [r4+0], m6
   movq              [r4+8], m7
+%if %1 == %2 && %1 == 111
+    mov ebx, 222          ; End marker bytes
+    db 0x64, 0x67, 0x90   ; End marker bytes
+%endif
   RET
 %endif
 %endmacro
