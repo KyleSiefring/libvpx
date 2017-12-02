@@ -115,6 +115,77 @@ void vpx_sad8x8x4d_avx512(const uint8_t *src, int src_stride,
 //IACA_END
 }
 
+DECLARE_ALIGNED(64, static const uint64_t, idx_vec[8]) = {
+ 0, 0, 0, 0,  0, 0, 0, 0
+};
+
+DECLARE_ALIGNED(64, static const uint32_t, incr_vec[8]) = {
+ 1, 1, 1, 1,  1, 1, 1, 1,
+};
+
+void vpx_sadTESTx8d_avx512(const __m512i src,
+                          const uint8_t *const ref[8], int ref_stride,
+                          uint32_t res[8]) {
+//IACA_START
+#if ARCH_X86_64
+  __m512i src_reg0, src_reg1, src_reg2, src_reg3;
+  __m512i ref_reg0, ref_reg1, ref_reg2, ref_reg3;
+  __m512i sum_reg;
+  __m512i gather_reg;
+  __m512i idx, incr;
+  
+  uint8_t *offset = 0;
+  idx = _mm512_load_si512((const void *)idx_vec);
+  incr = _mm512_load_si512((const void *)incr_vec);
+  gather_reg = _mm512_loadu_si512((const __m256i *)ref);
+  sum_reg = _mm512_set1_epi16(0);
+  ref_reg0 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 0 * ref_stride), 1);
+  ref_reg1 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 2 * ref_stride), 1);
+  ref_reg2 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 4 * ref_stride), 1);
+  ref_reg3 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 6 * ref_stride), 1);
+  src_reg0 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  src_reg1 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  src_reg2 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  src_reg3 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  ref_reg0 = _mm512_sad_epu8(ref_reg0, src_reg0);
+  ref_reg1 = _mm512_sad_epu8(ref_reg1, src_reg1);
+  ref_reg2 = _mm512_sad_epu8(ref_reg2, src_reg2);
+  ref_reg3 = _mm512_sad_epu8(ref_reg3, src_reg3);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg0);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg1);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg2);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg3);
+  offset += 8 * ref_stride;
+  ref_reg0 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 0 * ref_stride), 1);
+  ref_reg1 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 2 * ref_stride), 1);
+  ref_reg2 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 4 * ref_stride), 1);
+  ref_reg3 = _mm512_i64gather_epi64(gather_reg, (void *)(offset + 6 * ref_stride), 1);
+  src_reg0 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  src_reg1 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  src_reg2 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  src_reg3 = _mm512_permutex2var_epi64(src, idx, src);
+  idx = _mm512_add_epi64(idx, incr);
+  ref_reg0 = _mm512_sad_epu8(ref_reg0, src_reg0);
+  ref_reg1 = _mm512_sad_epu8(ref_reg1, src_reg1);
+  ref_reg2 = _mm512_sad_epu8(ref_reg2, src_reg2);
+  ref_reg3 = _mm512_sad_epu8(ref_reg3, src_reg3);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg0);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg1);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg2);
+  sum_reg = _mm512_add_epi32(sum_reg, ref_reg3);
+  _mm256_store_si256((__m256i *)(res), _mm512_cvtepi64_epi32(sum_reg));
+#else
+#endif
+//IACA_END
+}
+
 void vpx_sad64x64x4d_avx512(const uint8_t *src, int src_stride,
                             const uint8_t *const ref[4], int ref_stride,
                             uint32_t res[4]) {
