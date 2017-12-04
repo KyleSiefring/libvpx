@@ -283,6 +283,7 @@ DSP_SRCS-$(HAVE_SSE2)   += x86/quantize_x86.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/quantize_sse2.c
 DSP_SRCS-$(HAVE_SSSE3)  += x86/quantize_ssse3.c
 DSP_SRCS-$(HAVE_AVX)    += x86/quantize_avx.c
+DSP_SRCS-$(HAVE_AVX2)   += x86/quantize_avx2.c
 DSP_SRCS-$(HAVE_NEON)   += arm/quantize_neon.c
 ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
 DSP_SRCS-$(HAVE_SSE2)   += x86/highbd_quantize_intrin_sse2.c

@@ -73,15 +73,15 @@ class VP9QuantizeBase {
       : bit_depth_(bit_depth), max_size_(max_size) {
     max_value_ = (1 << bit_depth_) - 1;
     zbin_ptr_ =
-        reinterpret_cast<int16_t *>(vpx_memalign(16, 8 * sizeof(*zbin_ptr_)));
+        reinterpret_cast<int16_t *>(vpx_memalign(32, 16 * sizeof(*zbin_ptr_)));
     round_ptr_ =
-        reinterpret_cast<int16_t *>(vpx_memalign(16, 8 * sizeof(*round_ptr_)));
+        reinterpret_cast<int16_t *>(vpx_memalign(32, 16 * sizeof(*round_ptr_)));
     quant_ptr_ =
-        reinterpret_cast<int16_t *>(vpx_memalign(16, 8 * sizeof(*quant_ptr_)));
+        reinterpret_cast<int16_t *>(vpx_memalign(32, 16 * sizeof(*quant_ptr_)));
     quant_shift_ptr_ = reinterpret_cast<int16_t *>(
-        vpx_memalign(16, 8 * sizeof(*quant_shift_ptr_)));
+        vpx_memalign(32, 16 * sizeof(*quant_shift_ptr_)));
     dequant_ptr_ = reinterpret_cast<int16_t *>(
-        vpx_memalign(16, 8 * sizeof(*dequant_ptr_)));
+        vpx_memalign(32, 16 * sizeof(*dequant_ptr_)));
   }
 
   ~VP9QuantizeBase() {
@@ -139,7 +139,7 @@ void GenerateHelperArrays(ACMRandom *rnd, int16_t *zbin, int16_t *round,
     // dequant maxes out at 1828 for all cases.
     dequant[j] = rnd->RandRange(1828);
   }
-  for (int j = 2; j < 8; j++) {
+  for (int j = 2; j < 16; j++) {
     zbin[j] = zbin[1];
     round[j] = round[1];
     quant[j] = quant[1];
@@ -404,6 +404,15 @@ INSTANTIATE_TEST_CASE_P(
                       make_tuple(&vpx_quantize_b_32x32_avx,
                                  &vpx_quantize_b_32x32_ssse3, VPX_BITS_8, 32)));
 #endif  // HAVE_AVX && !CONFIG_VP9_HIGHBITDEPTH
+
+/*
+#if HAVE_AVX2 && !CONFIG_VP9_HIGHBITDEPTH
+INSTANTIATE_TEST_CASE_P(
+    AVX2, VP9QuantizeTest,
+    ::testing::Values(make_tuple(&vpx_quantize_b_avx2, &vpx_quantize_b_c,
+                                 VPX_BITS_8, 16)));
+#endif  // HAVE_AVX2 && !CONFIG_VP9_HIGHBITDEPTH
+*/
 
 // TODO(webm:1448): dqcoeff is not handled correctly in HBD builds.
 #if HAVE_NEON && !CONFIG_VP9_HIGHBITDEPTH
