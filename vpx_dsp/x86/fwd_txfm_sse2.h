@@ -18,6 +18,16 @@ extern "C" {
 #define pair_set_epi32(a, b) \
   _mm_set_epi32((int)(b), (int)(a), (int)(b), (int)(a))
 
+static INLINE __m128i k_mullo_epi32(__m128i a, __m128i b) {
+  __m128i buf0, buf1;
+  buf0 = _mm_mul_epu32(a, b);
+  a = _mm_srli_epi64(a, 32);
+  buf1 = _mm_mul_epu32(a, b);
+  buf0 = _mm_shuffle_epi32(buf0, _MM_SHUFFLE(0, 0, 2, 0));
+  buf1 = _mm_shuffle_epi32(buf1, _MM_SHUFFLE(0, 0, 2, 0));
+  return _mm_unpacklo_epi32(buf0, buf1);
+}
+
 static INLINE __m128i k_madd_epi32(__m128i a, __m128i b) {
   __m128i buf0, buf1;
   buf0 = _mm_mul_epu32(a, b);

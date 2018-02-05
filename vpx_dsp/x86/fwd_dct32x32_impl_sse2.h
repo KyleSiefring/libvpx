@@ -1678,7 +1678,17 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
           //
           const __m128i k32_p16_p16 = pair_set_epi32(cospi_16_64, cospi_16_64);
           const __m128i k32_p16_m16 = pair_set_epi32(cospi_16_64, -cospi_16_64);
+v[0] = k_mullo_epi32(lstep3[12], k32_p16_p16);
+v[1] = k_mullo_epi32(lstep3[13], k32_p16_p16);
+v[2] = k_mullo_epi32(lstep3[10], k32_p16_p16);
+v[3] = k_mullo_epi32(lstep3[11], k32_p16_p16);
 
+u[0] = _mm_sub_epi32(v[0], v[2]);
+u[1] = _mm_sub_epi32(v[1], v[3]);
+u[2] = _mm_add_epi32(v[0], v[2]);
+u[3] = _mm_add_epi32(v[1], v[3]);
+
+/*
           u[0] = _mm_unpacklo_epi32(lstep3[12], lstep3[10]);
           u[1] = _mm_unpackhi_epi32(lstep3[12], lstep3[10]);
           u[2] = _mm_unpacklo_epi32(lstep3[13], lstep3[11]);
@@ -1706,6 +1716,7 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
           u[1] = k_packs_epi64(v[2], v[3]);
           u[2] = k_packs_epi64(v[4], v[5]);
           u[3] = k_packs_epi64(v[6], v[7]);
+*/
 
           v[0] = _mm_add_epi32(u[0], k__DCT_CONST_ROUNDING);
           v[1] = _mm_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1860,16 +1871,25 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
           u[6] = _mm_unpacklo_epi32(lstep1[5], lstep1[7]);
           u[7] = _mm_unpackhi_epi32(lstep1[5], lstep1[7]);
 
+v[0] = k_mullo_epi32(lstep1[0], k32_p16_p16);
+v[1] = k_mullo_epi32(lstep1[1], k32_p16_p16);
+v[2] = k_mullo_epi32(lstep1[2], k32_p16_p16);
+v[3] = k_mullo_epi32(lstep1[3], k32_p16_p16);
+
+u[0] = _mm_add_epi32(v[0], v[2]);
+u[1] = _mm_add_epi32(v[1], v[3]);
+u[2] = _mm_sub_epi32(v[0], v[2]);
+u[3] = _mm_sub_epi32(v[1], v[3]);
           // TODO(jingning): manually inline k_madd_epi32_ to further hide
           // instruction latency.
-          v[0] = k_madd_epi32(u[0], k32_p16_p16);
+          /*v[0] = k_madd_epi32(u[0], k32_p16_p16);
           v[1] = k_madd_epi32(u[1], k32_p16_p16);
           v[2] = k_madd_epi32(u[2], k32_p16_p16);
           v[3] = k_madd_epi32(u[3], k32_p16_p16);
           v[4] = k_madd_epi32(u[0], k32_p16_m16);
           v[5] = k_madd_epi32(u[1], k32_p16_m16);
           v[6] = k_madd_epi32(u[2], k32_p16_m16);
-          v[7] = k_madd_epi32(u[3], k32_p16_m16);
+          v[7] = k_madd_epi32(u[3], k32_p16_m16);*/
           v[8] = k_madd_epi32(u[4], k32_p24_p08);
           v[9] = k_madd_epi32(u[5], k32_p24_p08);
           v[10] = k_madd_epi32(u[6], k32_p24_p08);
@@ -1888,10 +1908,10 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
             return;
           }
 #endif  // DCT_HIGH_BIT_DEPTH
-          u[0] = k_packs_epi64(v[0], v[1]);
+          /*u[0] = k_packs_epi64(v[0], v[1]);
           u[1] = k_packs_epi64(v[2], v[3]);
           u[2] = k_packs_epi64(v[4], v[5]);
-          u[3] = k_packs_epi64(v[6], v[7]);
+          u[3] = k_packs_epi64(v[6], v[7]);*/
           u[4] = k_packs_epi64(v[8], v[9]);
           u[5] = k_packs_epi64(v[10], v[11]);
           u[6] = k_packs_epi64(v[12], v[13]);
