@@ -18,11 +18,41 @@ extern "C" {
 #define pair_set_epi32(a, b) \
   _mm_set_epi32((int)(b), (int)(a), (int)(b), (int)(a))
 
+static INLINE void k_madd_epi32_x2(__m128i *out0, __m128i *out1, __m128i a0, int sign0, __m128i b0, __m128i a1, int sign1, __m128i b1) {
+  __m128i buf0, buf1, buf2, buf3;
+  if (sign0 < 0 && sign1 < 0)
+    a0 = _mm_sub_epi32(_mm_setzero_si128(), a0);
+  buf0 = _mm_mul_epu32(a0, b0);
+  buf1 = _mm_mul_epu32(a1, b1);
+  a0 = _mm_shuffle_epi32(a0, _MM_SHUFFLE(0, 3, 0, 1));
+  a1 = _mm_shuffle_epi32(a1, _MM_SHUFFLE(0, 3, 0, 1));
+  buf2 = _mm_mul_epu32(a0, b0);
+  buf3 = _mm_mul_epu32(a1, b1);
+  if (sign1 < 0) {
+    *out0 = _mm_sub_epi64(buf0, buf1);
+    *out1 = _mm_sub_epi64(buf2, buf3);
+  }
+  else if (sign0 < 0) {
+    *out0 = _mm_sub_epi64(buf1, buf0);
+    *out1 = _mm_sub_epi64(buf3, buf2);
+  }
+  else {
+    *out0 = _mm_add_epi64(buf0, buf1);
+    *out1 = _mm_add_epi64(buf2, buf3);
+  }
+}
+
+static INLINE __m128i k_packs_epi64_new(__m128i a, __m128i b) {
+  __m128i buf0 = _mm_shuffle_epi32(a, _MM_SHUFFLE(0, 0, 2, 0));
+  __m128i buf1 = _mm_shuffle_epi32(b, _MM_SHUFFLE(0, 0, 2, 0));
+  return _mm_unpacklo_epi32(buf0, buf1);
+}
+
 static INLINE __m128i k_madd_epi32(__m128i a, __m128i b) {
   __m128i buf0, buf1;
   buf0 = _mm_mul_epu32(a, b);
-  a = _mm_srli_epi64(a, 32);
-  b = _mm_srli_epi64(b, 32);
+  a = _mm_shuffle_epi32(a, _MM_SHUFFLE(0, 3, 0, 1));
+  b = _mm_shuffle_epi32(b, _MM_SHUFFLE(0, 3, 0, 1));
   buf1 = _mm_mul_epu32(a, b);
   return _mm_add_epi64(buf0, buf1);
 }
