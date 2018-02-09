@@ -1568,7 +1568,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
         {
           // to be continued...
           //
-          const __m256i k32_p16_p16 =
+          /*const __m256i k32_p16_p16 =
               pair256_set_epi32(cospi_16_64, cospi_16_64);
           const __m256i k32_p16_m16 =
               pair256_set_epi32(cospi_16_64, -cospi_16_64);
@@ -1592,7 +1592,16 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           u[0] = k_packs_epi64_avx2(v[0], v[1]);
           u[1] = k_packs_epi64_avx2(v[2], v[3]);
           u[2] = k_packs_epi64_avx2(v[4], v[5]);
-          u[3] = k_packs_epi64_avx2(v[6], v[7]);
+          u[3] = k_packs_epi64_avx2(v[6], v[7]);*/
+
+          lstep3[10] = _mm256_madd_epi16(lstep2[4], k__cospi_p16_m16);
+          lstep3[11] = _mm256_madd_epi16(lstep2[5], k__cospi_p16_m16);
+          lstep3[12] = _mm256_madd_epi16(lstep2[2], k__cospi_p16_m16);
+          lstep3[13] = _mm256_madd_epi16(lstep2[3], k__cospi_p16_m16);
+          u[0] = _mm256_sub_epi32(lstep3[12], lstep3[10]);
+          u[1] = _mm256_sub_epi32(lstep3[13], lstep3[11]);
+          u[2] = _mm256_add_epi32(lstep3[12], lstep3[10]);
+          u[3] = _mm256_add_epi32(lstep3[13], lstep3[11]);
 
           v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
           v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1605,7 +1614,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           lstep1[13] = _mm256_srai_epi32(v[3], DCT_CONST_BITS);
         }
         {
-          const __m256i k32_m08_p24 =
+          /*const __m256i k32_m08_p24 =
               pair256_set_epi32(-cospi_8_64, cospi_24_64);
           const __m256i k32_m24_m08 =
               pair256_set_epi32(-cospi_24_64, -cospi_8_64);
@@ -1677,8 +1686,50 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           u[12] = k_packs_epi64_avx2(v[24], v[25]);
           u[13] = k_packs_epi64_avx2(v[26], v[27]);
           u[14] = k_packs_epi64_avx2(v[28], v[29]);
-          u[15] = k_packs_epi64_avx2(v[30], v[31]);
+          u[15] = k_packs_epi64_avx2(v[30], v[31]);*/
+u[0] = _mm256_unpacklo_epi16(step1[18], step1[29]);
+u[6] = _mm256_unpacklo_epi16(step2[21], step2[26]);
+v[0] = _mm256_madd_epi16(u[0], k__cospi_m08_p24);
+v[1] = _mm256_madd_epi16(u[0], k__cospi_m24_m08);
+v[2] = _mm256_madd_epi16(u[6], k__cospi_m08_p24);
+v[3] = _mm256_madd_epi16(u[6], k__cospi_m24_m08);
+u[0] = _mm256_add_epi32(v[0], v[2]);
+u[6] = _mm256_sub_epi32(v[1], v[3]);
+u[8] = _mm256_sub_epi32(v[0], v[2]);
+u[14] = _mm256_sub_epi32(kZero, _mm256_add_epi32(v[1], v[3]));
 
+u[1] = _mm256_unpackhi_epi16(step1[18], step1[29]);
+u[7] = _mm256_unpackhi_epi16(step2[21], step2[26]);
+v[4] = _mm256_madd_epi16(u[1], k__cospi_m08_p24);
+v[5] = _mm256_madd_epi16(u[1], k__cospi_m24_m08);
+v[6] = _mm256_madd_epi16(u[7], k__cospi_m08_p24);
+v[7] = _mm256_madd_epi16(u[7], k__cospi_m24_m08);
+u[1] = _mm256_add_epi32(v[4], v[6]);
+u[7] = _mm256_sub_epi32(v[5], v[7]);
+u[9] = _mm256_sub_epi32(v[4], v[6]);
+u[15] = _mm256_sub_epi32(kZero, _mm256_add_epi32(v[5], v[7]));
+
+u[2] = _mm256_unpacklo_epi16(step1[19], step1[28]);
+u[4] = _mm256_unpacklo_epi16(step2[20], step2[27]);
+v[8] = _mm256_madd_epi16(u[2], k__cospi_m08_p24);
+v[9] = _mm256_madd_epi16(u[2], k__cospi_m24_m08);
+v[10] = _mm256_madd_epi16(u[4], k__cospi_m08_p24);
+v[11] = _mm256_madd_epi16(u[4], k__cospi_m24_m08);
+u[2] = _mm256_add_epi32(v[8], v[10]);
+u[4] = _mm256_sub_epi32(v[9], v[11]);
+u[10] = _mm256_sub_epi32(v[8], v[10]);
+u[12] = _mm256_sub_epi32(kZero, _mm256_add_epi32(v[9], v[11]));
+
+u[3] = _mm256_unpackhi_epi16(step1[19], step1[28]);
+u[5] = _mm256_unpackhi_epi16(step2[20], step2[27]);
+v[12] = _mm256_madd_epi16(u[3], k__cospi_m08_p24);
+v[13] = _mm256_madd_epi16(u[3], k__cospi_m24_m08);
+v[14] = _mm256_madd_epi16(u[5], k__cospi_m08_p24);
+v[15] = _mm256_madd_epi16(u[5], k__cospi_m24_m08);
+u[3] = _mm256_add_epi32(v[12], v[14]);
+u[5] = _mm256_sub_epi32(v[13], v[15]);
+u[11] = _mm256_sub_epi32(v[12], v[14]);
+u[13] = _mm256_sub_epi32(kZero, _mm256_add_epi32(v[13], v[15]));
           v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
           v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
           v[2] = _mm256_add_epi32(u[2], k__DCT_CONST_ROUNDING);
@@ -1725,7 +1776,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           lstep2[15] = _mm256_add_epi32(lstep1[13], lstep3[15]);
         }
         {
-          const __m256i k32_p16_p16 =
+          /*const __m256i k32_p16_p16 =
               pair256_set_epi32(cospi_16_64, cospi_16_64);
           const __m256i k32_p16_m16 =
               pair256_set_epi32(cospi_16_64, -cospi_16_64);
@@ -1769,8 +1820,62 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           u[4] = k_packs_epi64_avx2(v[8], v[9]);
           u[5] = k_packs_epi64_avx2(v[10], v[11]);
           u[6] = k_packs_epi64_avx2(v[12], v[13]);
-          u[7] = k_packs_epi64_avx2(v[14], v[15]);
+          u[7] = k_packs_epi64_avx2(v[14], v[15]);*/
+const __m256i k__cospi_p08_p08 = pair256_set_epi16(cospi_8_64, cospi_8_64);
+const __m256i k__cospi_p24_p24 = pair256_set_epi16(cospi_24_64, cospi_24_64);
 
+lstep3[0] = _mm256_madd_epi16(lstep2[0], k__cospi_p16_p16);
+lstep3[1] = _mm256_madd_epi16(lstep2[1], k__cospi_p16_p16);
+lstep3[2] = _mm256_madd_epi16(lstep2[2], k__cospi_p16_p16);
+lstep3[3] = _mm256_madd_epi16(lstep2[3], k__cospi_p16_p16);
+lstep3[4] = _mm256_madd_epi16(lstep2[4], k__cospi_p16_p16);
+lstep3[5] = _mm256_madd_epi16(lstep2[5], k__cospi_p16_p16);
+lstep3[6] = _mm256_madd_epi16(lstep2[6], k__cospi_p16_p16);
+lstep3[7] = _mm256_madd_epi16(lstep2[7], k__cospi_p16_p16);
+
+v[0] = _mm256_add_epi32(lstep3[0], lstep3[6]);
+v[1] = _mm256_add_epi32(lstep3[1], lstep3[7]);
+v[2] = _mm256_add_epi32(lstep3[2], lstep3[4]);
+v[3] = _mm256_add_epi32(lstep3[3], lstep3[5]);
+
+u[0] = _mm256_add_epi32(v[0], v[2]);
+u[1] = _mm256_add_epi32(v[1], v[3]);
+u[2] = _mm256_sub_epi32(v[0], v[2]);
+u[3] = _mm256_sub_epi32(v[1], v[3]);
+
+lstep3[0] = _mm256_madd_epi16(lstep2[0], k__cospi_p08_p08);
+lstep3[1] = _mm256_madd_epi16(lstep2[1], k__cospi_p08_p08);
+lstep3[2] = _mm256_madd_epi16(lstep2[2], k__cospi_p24_p24);
+lstep3[3] = _mm256_madd_epi16(lstep2[3], k__cospi_p24_p24);
+lstep3[4] = _mm256_madd_epi16(lstep2[4], k__cospi_p24_p24);
+lstep3[5] = _mm256_madd_epi16(lstep2[5], k__cospi_p24_p24);
+lstep3[6] = _mm256_madd_epi16(lstep2[6], k__cospi_p08_p08);
+lstep3[7] = _mm256_madd_epi16(lstep2[7], k__cospi_p08_p08);
+
+v[0] = _mm256_sub_epi32(lstep3[0], lstep3[6]);
+v[1] = _mm256_sub_epi32(lstep3[1], lstep3[7]);
+v[2] = _mm256_sub_epi32(lstep3[2], lstep3[4]);
+v[3] = _mm256_sub_epi32(lstep3[3], lstep3[5]);
+
+u[4] = _mm256_add_epi32(v[0], v[2]);
+u[5] = _mm256_add_epi32(v[1], v[3]);
+
+lstep3[0] = _mm256_madd_epi16(lstep2[0], k__cospi_p24_p24);
+lstep3[1] = _mm256_madd_epi16(lstep2[1], k__cospi_p24_p24);
+lstep3[2] = _mm256_madd_epi16(lstep2[2], k__cospi_p08_p08);
+lstep3[3] = _mm256_madd_epi16(lstep2[3], k__cospi_p08_p08);
+lstep3[4] = _mm256_madd_epi16(lstep2[4], k__cospi_p08_p08);
+lstep3[5] = _mm256_madd_epi16(lstep2[5], k__cospi_p08_p08);
+lstep3[6] = _mm256_madd_epi16(lstep2[6], k__cospi_p24_p24);
+lstep3[7] = _mm256_madd_epi16(lstep2[7], k__cospi_p24_p24);
+
+v[0] = _mm256_sub_epi32(lstep3[0], lstep3[6]);
+v[1] = _mm256_sub_epi32(lstep3[1], lstep3[7]);
+v[2] = _mm256_sub_epi32(lstep3[2], lstep3[4]);
+v[3] = _mm256_sub_epi32(lstep3[3], lstep3[5]);
+
+u[6] = _mm256_sub_epi32(v[0], v[2]);
+u[7] = _mm256_sub_epi32(v[1], v[3]);
           v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
           v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
           v[2] = _mm256_add_epi32(u[2], k__DCT_CONST_ROUNDING);

@@ -24,8 +24,8 @@ static INLINE void k_madd_epi32_x2(__m128i *out0, __m128i *out1, __m128i a0, int
     a0 = _mm_sub_epi32(_mm_setzero_si128(), a0);
   buf0 = _mm_mul_epu32(a0, b0);
   buf1 = _mm_mul_epu32(a1, b1);
-  a0 = _mm_shuffle_epi32(a0, _MM_SHUFFLE(0, 3, 0, 1));
-  a1 = _mm_shuffle_epi32(a1, _MM_SHUFFLE(0, 3, 0, 1));
+  a0 = _mm_srli_epi64(a0, 32);
+  a1 = _mm_srli_epi64(a1, 32);
   buf2 = _mm_mul_epu32(a0, b0);
   buf3 = _mm_mul_epu32(a1, b1);
   if (sign1 < 0) {
