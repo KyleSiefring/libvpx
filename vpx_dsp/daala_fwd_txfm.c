@@ -26,6 +26,7 @@ void daala_fwd_txfm(const int16_t *input_pixels,
   const int rows = 4 << tx_size;
   daala_ftx tx = tx_map[tx_size];
   od_coeff tmp[MAX_TX_SIZE];
+  od_coeff tmp2d[MAX_TX_SIZE*MAX_TX_SIZE];
   int r;
   int c;
   // Transform columns
@@ -37,11 +38,11 @@ void daala_fwd_txfm(const int16_t *input_pixels,
     tx(tmp, tmp, 1);
     // No ystride in daala_tx lowlevel functions, store output vector
     // into column the long way
-    
-    for (r = 0; r < rows; ++r) output_coeffs[r * cols + c] = tmp[r] >> downshift;
+    for (r = 0; r < rows; ++r) tmp2d[r * cols + c] = tmp[r] >> downshift;
   }
   // Transform rows
   for (r = 0; r < rows; ++r) {
-    tx(output_coeffs + r * cols, output_coeffs + r * cols, 1);
+    tx(tmp2d + r * cols, tmp2d + r * cols, 1);
+    for (c = 0; c < cols; ++c) output_coeffs[r * cols + c] = tmp2d[r * cols + c];
   }
 }

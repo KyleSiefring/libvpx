@@ -83,7 +83,7 @@ extern "C" {
 # define OD_LOG(a)
 # define OD_LOG_PARTIAL(a)
 
-typedef tran_low_t od_coeff;
+typedef int od_coeff;
 
 #define OD_DIVU_DMAX (1024)
 
