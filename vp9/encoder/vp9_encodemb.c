@@ -25,6 +25,8 @@
 #include "vp9/encoder/vp9_rd.h"
 #include "vp9/encoder/vp9_tokenize.h"
 
+#include "vpx_dsp/odintrin.h"
+
 struct optimize_ctx {
   ENTROPY_CONTEXT ta[MAX_MB_PLANE][16];
   ENTROPY_CONTEXT tl[MAX_MB_PLANE][16];
@@ -303,12 +305,39 @@ int vp9_optimize_b(MACROBLOCK *mb, int plane, int block, TX_SIZE tx_size,
 }
 #undef RIGHT_SHIFT_POSSIBLY_NEGATIVE
 
+#include "vpx_dsp/daala_fwd_txfm.h"
+
 static INLINE void fdct32x32(int rd_transform, const int16_t *src,
                              tran_low_t *dst, int src_stride) {
   if (rd_transform)
-    vpx_fdct32x32_rd(src, dst, src_stride);
+    daala_fwd_txfm(src, dst, src_stride, TX_32X32);
+    //vpx_fdct32x32_rd(src, dst, src_stride);
   else
     vpx_fdct32x32(src, dst, src_stride);
+}
+
+static INLINE void fdct16x16(int rd_transform, const int16_t *src,
+                             tran_low_t *dst, int src_stride) {
+  /*if (rd_transform)
+    daala_fwd_txfm(src, dst, src_stride, TX_16X16);
+  else*/
+    vpx_fdct16x16(src, dst, src_stride);
+}
+
+static INLINE void fdct8x8(int rd_transform, const int16_t *src,
+                             tran_low_t *dst, int src_stride) {
+  /*if (rd_transform)
+    daala_fwd_txfm(src, dst, src_stride, TX_8X8);
+  else*/
+    vpx_fdct8x8(src, dst, src_stride);
+}
+
+static INLINE void fwd_txfm4x4(MACROBLOCK *x, int rd_transform, const int16_t *src,
+                               tran_low_t *dst, int src_stride) {
+  /*if (x->fwd_txfm4x4 == vpx_fdct4x4 && rd_transform)
+    daala_fwd_txfm(src, dst, src_stride, TX_4X4);
+  else*/
+    x->fwd_txfm4x4(src, dst, src_stride);
 }
 
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -378,7 +407,8 @@ void vp9_xform_quant_fp(MACROBLOCK *x, int plane, int block, int row, int col,
                             scan_order->scan, scan_order->iscan);
       break;
     case TX_16X16:
-      vpx_fdct16x16(src_diff, coeff, diff_stride);
+      //vpx_fdct16x16(src_diff, coeff, diff_stride);
+      fdct16x16(x->use_lp32x32fdct, src_diff, coeff, diff_stride);
       vp9_quantize_fp(coeff, 256, x->skip_block, p->round_fp, p->quant_fp,
                       qcoeff, dqcoeff, pd->dequant, eob, scan_order->scan,
                       scan_order->iscan);
@@ -389,7 +419,7 @@ void vp9_xform_quant_fp(MACROBLOCK *x, int plane, int block, int row, int col,
                         eob, scan_order->scan, scan_order->iscan);
       break;
     case TX_4X4:
-      x->fwd_txfm4x4(src_diff, coeff, diff_stride);
+      fwd_txfm4x4(x, x->use_lp32x32fdct, src_diff, coeff, diff_stride);
       vp9_quantize_fp(coeff, 16, x->skip_block, p->round_fp, p->quant_fp,
                       qcoeff, dqcoeff, pd->dequant, eob, scan_order->scan,
                       scan_order->iscan);
@@ -533,19 +563,19 @@ void vp9_xform_quant(MACROBLOCK *x, int plane, int block, int row, int col,
                            scan_order->iscan);
       break;
     case TX_16X16:
-      vpx_fdct16x16(src_diff, coeff, diff_stride);
+      fdct16x16(x->use_lp32x32fdct, src_diff, coeff, diff_stride);
       vpx_quantize_b(coeff, 256, x->skip_block, p->zbin, p->round, p->quant,
                      p->quant_shift, qcoeff, dqcoeff, pd->dequant, eob,
                      scan_order->scan, scan_order->iscan);
       break;
     case TX_8X8:
-      vpx_fdct8x8(src_diff, coeff, diff_stride);
+      fdct8x8(x->use_lp32x32fdct, src_diff, coeff, diff_stride);
       vpx_quantize_b(coeff, 64, x->skip_block, p->zbin, p->round, p->quant,
                      p->quant_shift, qcoeff, dqcoeff, pd->dequant, eob,
                      scan_order->scan, scan_order->iscan);
       break;
     case TX_4X4:
-      x->fwd_txfm4x4(src_diff, coeff, diff_stride);
+      fwd_txfm4x4(x, x->use_lp32x32fdct, src_diff, coeff, diff_stride);
       vpx_quantize_b(coeff, 16, x->skip_block, p->zbin, p->round, p->quant,
                      p->quant_shift, qcoeff, dqcoeff, pd->dequant, eob,
                      scan_order->scan, scan_order->iscan);
@@ -937,7 +967,7 @@ void vp9_encode_block_intra(int plane, int block, int row, int col,
         if (tx_type != DCT_DCT)
           vp9_fht4x4(src_diff, coeff, diff_stride, tx_type);
         else
-          x->fwd_txfm4x4(src_diff, coeff, diff_stride);
+          fwd_txfm4x4(x, x->use_lp32x32fdct, src_diff, coeff, diff_stride);
         vpx_quantize_b(coeff, 16, x->skip_block, p->zbin, p->round, p->quant,
                        p->quant_shift, qcoeff, dqcoeff, pd->dequant, eob,
                        scan_order->scan, scan_order->iscan);
