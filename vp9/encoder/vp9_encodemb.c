@@ -326,9 +326,9 @@ static INLINE void fdct16x16(int rd_transform, const int16_t *src,
 
 static INLINE void fdct8x8(int rd_transform, const int16_t *src,
                              tran_low_t *dst, int src_stride) {
-  /*if (rd_transform)
+  if (rd_transform)
     daala_fwd_txfm(src, dst, src_stride, TX_8X8);
-  else*/
+  else
     vpx_fdct8x8(src, dst, src_stride);
 }
 
