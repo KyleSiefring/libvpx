@@ -20,8 +20,12 @@ void daala_fwd_txfm(const int16_t *input_pixels,
                     tran_low_t *output_coeffs, int input_stride,
                     TX_SIZE tx_size) {
   //const int upshift = TX_COEFF_DEPTH - txfm_param->bd;
-  const int upshift = 12 - 8;
-  const int downshift = 1 + (tx_size == TX_32X32);
+  //4x4 +1 +1 14?? +2
+  //8x8   +2  15?? +3
+  //16x16 +3  16?? +4
+  //32x32 +4  17?? +5
+  const int upshift = 12 + (tx_size == TX_16X16) - 8;
+  const int downshift = 1 + (tx_size == TX_32X32 || tx_size == TX_16X16);
   const int cols = 4 << tx_size;
   const int rows = 4 << tx_size;
   daala_ftx tx = tx_map[tx_size];
