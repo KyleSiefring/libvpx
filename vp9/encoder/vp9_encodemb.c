@@ -334,9 +334,9 @@ static INLINE void fdct8x8(int rd_transform, const int16_t *src,
 
 static INLINE void fwd_txfm4x4(MACROBLOCK *x, int rd_transform, const int16_t *src,
                                tran_low_t *dst, int src_stride) {
-  /*if (x->fwd_txfm4x4 == vpx_fdct4x4 && rd_transform)
+  if (x->fwd_txfm4x4 == vpx_fdct4x4 && rd_transform)
     daala_fwd_txfm(src, dst, src_stride, TX_4X4);
-  else*/
+  else
     x->fwd_txfm4x4(src, dst, src_stride);
 }
 
