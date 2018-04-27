@@ -310,33 +310,33 @@ int vp9_optimize_b(MACROBLOCK *mb, int plane, int block, TX_SIZE tx_size,
 static INLINE void fdct32x32(int rd_transform, const int16_t *src,
                              tran_low_t *dst, int src_stride) {
   if (rd_transform)
-    daala_fwd_txfm(src, dst, src_stride, TX_32X32);
-    //vpx_fdct32x32_rd(src, dst, src_stride);
+    //daala_fwd_txfm(src, dst, src_stride, TX_32X32);
+    vpx_fdct32x32_rd(src, dst, src_stride);
   else
     vpx_fdct32x32(src, dst, src_stride);
 }
 
 static INLINE void fdct16x16(int rd_transform, const int16_t *src,
                              tran_low_t *dst, int src_stride) {
-  if (rd_transform)
+  /*if (rd_transform)
     daala_fwd_txfm(src, dst, src_stride, TX_16X16);
-  else
+  else*/
     vpx_fdct16x16(src, dst, src_stride);
 }
 
 static INLINE void fdct8x8(int rd_transform, const int16_t *src,
                              tran_low_t *dst, int src_stride) {
-  if (rd_transform)
+  /*if (rd_transform)
     daala_fwd_txfm(src, dst, src_stride, TX_8X8);
-  else
+  else*/
     vpx_fdct8x8(src, dst, src_stride);
 }
 
 static INLINE void fwd_txfm4x4(MACROBLOCK *x, int rd_transform, const int16_t *src,
                                tran_low_t *dst, int src_stride) {
-  if (x->fwd_txfm4x4 == vpx_fdct4x4 && rd_transform)
+  /*if (x->fwd_txfm4x4 == vpx_fdct4x4 && rd_transform)
     daala_fwd_txfm(src, dst, src_stride, TX_4X4);
-  else
+  else*/
     x->fwd_txfm4x4(src, dst, src_stride);
 }
 
