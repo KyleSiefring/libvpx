@@ -6,7 +6,7 @@
 
 /*Controls the biasing of average operations.
   Must be either 0 or 1.*/
-#define TX_AVG_BIAS (0)
+#define TX_AVG_BIAS (1)
 
 /*Parameterizes the variations of the transform kernels.
   See daala_tx_kernels.h for usage.*/
