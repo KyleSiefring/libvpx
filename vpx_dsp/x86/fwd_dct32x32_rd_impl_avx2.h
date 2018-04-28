@@ -56,6 +56,10 @@ static INLINE __m256i od_mm256_mulhrs_epi16(__m256i a, int16_t b) {
 
 static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
   int32_t b_q15;
+  if (b > 32767/2) {
+    b = (b+1)/2;
+    r = r-1;
+  }
   b_q15 = b << (15 - r);
   /* b and r are in all cases compile-time constants, so these branches
      disappear when this function gets inlined. */
