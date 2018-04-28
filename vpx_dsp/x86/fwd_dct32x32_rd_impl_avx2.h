@@ -70,17 +70,6 @@ static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
   }
 }
 
-static INLINE __m256i od_mm256_mul_epi32(__m256i a, int32_t b, int r) {
-  __m256i neg1;
-  /* It's cheaper to generate -1's than 1's. */
-  neg1 = _mm256_set1_epi64x(-1);
-  /* There's no 32-bit version of PMULHRSW on x86 like there is on ARM .*/
-  a = _mm256_mullo_epi32(a, _mm256_set1_epi32(b));
-  a = _mm256_srai_epi32(a, r - 1);
-  a = _mm256_sub_epi32(a, neg1);
-  return _mm256_srai_epi32(a, 1);
-}
-
 #undef OD_KERNEL
 #undef OD_COEFF
 #undef OD_ADD
@@ -92,7 +81,6 @@ static INLINE __m256i od_mm256_mul_epi32(__m256i a, int32_t b, int r) {
 #undef OD_SWAP
 
 /* Define 16-wide 16-bit AVX2 kernels. */
-
 #define OD_KERNEL kernel16_epi16
 #define OD_COEFF __m256i
 #define OD_ADD _mm256_add_epi16
