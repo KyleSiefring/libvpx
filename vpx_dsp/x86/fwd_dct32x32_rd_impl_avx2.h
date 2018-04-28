@@ -103,6 +103,7 @@ static __m256i load_pass1(const int16_t *ptr) {
 static __m256i load_pass2(const int16_t *ptr) {
   __m256i ret;
   ret = _mm256_loadu_si256((const __m256i *)ptr);
+  ret = _mm256_add_epi16(ret, _mm256_set1_epi16(2));
   return _mm256_srai_epi16(ret, 2);
 }
 
