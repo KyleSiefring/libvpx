@@ -105,11 +105,12 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
   uint32_t max_error = 0;
   int64_t total_error = 0;
-  const int count_test_block = 10000;
+  const int count_test_block = 10000000;
   DECLARE_ALIGNED(16, int16_t, test_input_block[kNumCoeffs]);
   DECLARE_ALIGNED(16, tran_low_t, test_temp_block[kNumCoeffs]);
   DECLARE_ALIGNED(16, uint8_t, dst[kNumCoeffs]);
   DECLARE_ALIGNED(16, uint8_t, src[kNumCoeffs]);
+  int count2 = 0;
 #if CONFIG_VP9_HIGHBITDEPTH
   DECLARE_ALIGNED(16, uint16_t, dst16[kNumCoeffs]);
   DECLARE_ALIGNED(16, uint16_t, src16[kNumCoeffs]);
@@ -149,6 +150,10 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
       const int32_t diff = dst[j] - src[j];
 #endif
       const uint32_t error = diff * diff;
+      if (abs(diff) == 2) {
+        count2++;
+        EXPECT_GT(1, abs(diff)) << "Error: high diff at " << (j / 32) << " " << (j%32) << " " << diff;
+      }
       if (max_error < error) max_error = error;
       total_error += error;
     }
@@ -159,16 +164,20 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
     total_error /= 45;
   }
 
+  EXPECT_EQ(0, count2) << "Error: abs diff of 2 exists";
   EXPECT_GE(1u << 2 * (bit_depth_ - 8), max_error)
       << "Error: 32x32 FDCT/IDCT has an individual round-trip error > 1";
 
-  EXPECT_GE(count_test_block << 2 * (bit_depth_ - 8), total_error)
+  EXPECT_GE(count_test_block >> 1 << 2 * (bit_depth_ - 8), total_error)
       << "Error: 32x32 FDCT/IDCT has average round-trip error > 1 per block";
 }
 
 TEST_P(Trans32x32Test, CoeffCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
   const int count_test_block = 1000;
+
+  int64_t total_error = 0;
+  DECLARE_ALIGNED(16, int64_t, all_error[kNumCoeffs]) = {0};
 
   DECLARE_ALIGNED(16, int16_t, input_block[kNumCoeffs]);
   DECLARE_ALIGNED(16, tran_low_t, output_ref_block[kNumCoeffs]);
@@ -188,11 +197,23 @@ TEST_P(Trans32x32Test, CoeffCheck) {
         EXPECT_EQ(output_block[j], output_ref_block[j])
             << "Error: 32x32 FDCT versions have mismatched coefficients";
     } else {
-      for (int j = 0; j < kNumCoeffs; ++j)
+      for (int j = 0; j < kNumCoeffs; ++j) {
+        total_error += abs(output_block[j] - output_ref_block[j]);
+        all_error[j] += abs(output_block[j] - output_ref_block[j]);
         EXPECT_GE(6, abs(output_block[j] - output_ref_block[j]))
             << "Error: 32x32 FDCT rd has mismatched coefficients";
+      }
     }
   }
+  EXPECT_GE(0, total_error) << "High error";
+  printf("\n");
+  for (int i = 0; i < 32; ++i) {
+    for (int j = 0; j < 1; ++j) {
+      printf("%0.3f ", all_error[i*32 + j]/(double)count_test_block);
+    }
+    //printf("\n");
+  }
+  printf("\n");
 }
 
 TEST_P(Trans32x32Test, MemCheck) {

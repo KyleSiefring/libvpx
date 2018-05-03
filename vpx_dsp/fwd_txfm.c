@@ -726,6 +726,7 @@ void vpx_fdct32x32_c(const int16_t *input, tran_low_t *out, int stride) {
     for (j = 0; j < 32; ++j)
       out[j + i * 32] =
           (tran_low_t)((temp_out[j] + 1 + (temp_out[j] < 0)) >> 2);
+    //for (j = 0; j < 32; ++j) out[j + i * 32] = output[j + i * 32];
   }
 }
 

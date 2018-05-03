@@ -13,8 +13,32 @@
 #include "./vpx_dsp_rtcd.h"
 #include "vpx_dsp/daala_tx.h"
 
+#define pair_set_epi16(a, b) \
+  _mm256_set1_epi32((int32_t)(((uint16_t)(a)) | (((uint32_t)(b)) << 16)))
+
+static INLINE __m256i od_mm256_madd_epi16(__m256i a, __m256i b, int16_t c0, int16_t c1, const int r) {
+  const __m256i pair = pair_set_epi16(c0, c1);
+  __m256i lo, hi;
+  lo = _mm256_unpacklo_epi16(a, b);
+  hi = _mm256_unpackhi_epi16(a, b);
+  lo = _mm256_madd_epi16(lo, pair);
+  hi = _mm256_madd_epi16(hi, pair);
+  lo = _mm256_add_epi32(lo, _mm256_set1_epi32(1 << (r-1)));
+  hi = _mm256_add_epi32(hi, _mm256_set1_epi32(1 << (r-1)));
+  lo = _mm256_srai_epi32(lo, r);
+  hi = _mm256_srai_epi32(hi, r);
+  return _mm256_packs_epi32(lo, hi);
+}
+
 static INLINE __m256i od_mm256_unbiased_rshift1_epi16(__m256i a) {
-  return _mm256_srai_epi16(_mm256_add_epi16(_mm256_srli_epi16(a, 15), a), 1);
+  //return _mm256_srai_epi16(_mm256_add_epi16(_mm256_srli_epi16(a, 15), a), 1);
+  return _mm256_srai_epi16(_mm256_add_epi16(a, _mm256_set1_epi16(1)), 1);
+}
+
+static INLINE __m256i od_mm256_rshift1_epi16(__m256i a) {
+  //return _mm256_srai_epi16(_mm256_add_epi16(_mm256_srli_epi16(a, 15), a), 1);
+  //return _mm256_srai_epi16(_mm256_add_epi16(a, _mm256_set1_epi16(1)), 1);
+  return _mm256_srai_epi16(a, 1);
 }
 
 static INLINE __m256i od_mm256_add_avg_epi16(__m256i a, __m256i b) {
@@ -85,10 +109,12 @@ static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
 #define OD_COEFF __m256i
 #define OD_ADD _mm256_add_epi16
 #define OD_SUB _mm256_sub_epi16
-#define OD_RSHIFT1 od_mm256_unbiased_rshift1_epi16
+#define OD_RSHIFT1_B od_mm256_unbiased_rshift1_epi16
+#define OD_RSHIFT1 od_mm256_rshift1_epi16
 #define OD_ADD_AVG od_mm256_add_avg_epi16
 #define OD_SUB_AVG od_mm256_sub_avg_epi16
 #define OD_MUL od_mm256_mul_epi16
+#define OD_MADD od_mm256_madd_epi16
 #define OD_SWAP od_mm256_swap_si256
 
 #include "vpx_dsp/daala_tx_kernels.h"
@@ -101,9 +127,11 @@ static __m256i load_pass1(const int16_t *ptr) {
 }
 
 static __m256i load_pass2(const int16_t *ptr) {
-  __m256i ret;
+  __m256i ret, sign;
   ret = _mm256_loadu_si256((const __m256i *)ptr);
-  ret = _mm256_add_epi16(ret, _mm256_set1_epi16(2));
+  sign = _mm256_cmpgt_epi16(ret, _mm256_set1_epi16(0));
+  ret = _mm256_sub_epi16(ret, sign);
+  ret = _mm256_add_epi16(ret, _mm256_set1_epi16(1));
   return _mm256_srai_epi16(ret, 2);
 }
 
@@ -175,6 +203,9 @@ static void rd_fdct32_avx2(__m256i y[32], const int16_t *x, int xstride, int pas
     tv = load_pass1(x + 31*xstride);
   }
   else {
+    /*for (int i = 0; i < 32; i++)
+      y[i] = load_pass2(x + i*xstride);
+    return;*/
     t0 = load_pass2(x + 0*xstride);
     tg = load_pass2(x + 1*xstride);
     t8 = load_pass2(x + 2*xstride);
@@ -209,9 +240,15 @@ static void rd_fdct32_avx2(__m256i y[32], const int16_t *x, int xstride, int pas
     tv = load_pass2(x + 31*xstride);
   }
   od_fdct_32_kernel16_epi16(
-    &t0, &tg, &t8, &to, &t4, &tk, &tc, &ts, &t2, &ti, &ta, &tq, &t6, &tm, &te,
-    &tu, &t1, &th, &t9, &tp, &t5, &tl, &td, &tt, &t3, &tj, &tb, &tr, &t7, &tn,
-    &tf, &tv);
+    &t0, &tg, &t8, &to,
+    &t4, &tk, &tc, &ts,
+    &t2, &ti, &ta, &tq,
+    &t6, &tm, &te, &tu,
+
+    &t1, &th, &t9, &tp,
+    &t5, &tl, &td, &tt,
+    &t3, &tj, &tb, &tr,
+    &t7, &tn, &tf, &tv);
   y[0] = t0;
   y[1] = t1;
   y[2] = t2;
