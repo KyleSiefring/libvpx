@@ -1,6 +1,10 @@
 #include "vpx_dsp/daala_tx.h"
 #include "vpx_dsp/odintrin.h"
 
+#define CONFIG_DAALA_TX_DST8 1
+#define CONFIG_DAALA_TX_DST32 0
+#define CONFIG_TX64X64 0
+
 static INLINE od_coeff od_add(od_coeff p0, od_coeff p1) { return p0 + p1; }
 
 static INLINE od_coeff od_sub(od_coeff p0, od_coeff p1) { return p0 - p1; }
