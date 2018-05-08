@@ -33,6 +33,7 @@ static INLINE __m256i od_mm256_madd_epi16(__m256i a, __m256i b, int16_t c0, int1
 static INLINE __m256i od_mm256_unbiased_rshift1_epi16(__m256i a) {
   //return _mm256_srai_epi16(_mm256_add_epi16(_mm256_srli_epi16(a, 15), a), 1);
   return _mm256_srai_epi16(_mm256_add_epi16(a, _mm256_set1_epi16(1)), 1);
+  //return _mm256_srai_epi16(a, 1);
 }
 
 static INLINE __m256i od_mm256_rshift1_epi16(__m256i a) {
@@ -111,6 +112,7 @@ static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
 #define OD_SUB _mm256_sub_epi16
 #define OD_RSHIFT1_B od_mm256_unbiased_rshift1_epi16
 #define OD_RSHIFT1 od_mm256_rshift1_epi16
+//#define OD_RSHIFT1 od_mm256_unbiased_rshift1_epi16
 #define OD_ADD_AVG od_mm256_add_avg_epi16
 #define OD_SUB_AVG od_mm256_sub_avg_epi16
 #define OD_MUL od_mm256_mul_epi16

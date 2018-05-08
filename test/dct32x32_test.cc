@@ -105,7 +105,7 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
   uint32_t max_error = 0;
   int64_t total_error = 0;
-  const int count_test_block = 10000000;
+  const int count_test_block = 10000;
   DECLARE_ALIGNED(16, int16_t, test_input_block[kNumCoeffs]);
   DECLARE_ALIGNED(16, tran_low_t, test_temp_block[kNumCoeffs]);
   DECLARE_ALIGNED(16, uint8_t, dst[kNumCoeffs]);
