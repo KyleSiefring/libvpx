@@ -116,7 +116,7 @@ static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
 #define OD_ADD_AVG od_mm256_add_avg_epi16
 #define OD_SUB_AVG od_mm256_sub_avg_epi16
 #define OD_MUL od_mm256_mul_epi16
-#define OD_MADD od_mm256_madd_epi16
+//#define OD_MADD od_mm256_madd_epi16
 #define OD_SWAP od_mm256_swap_si256
 
 #include "vpx_dsp/daala_tx_kernels.h"

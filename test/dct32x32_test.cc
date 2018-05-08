@@ -150,10 +150,10 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
       const int32_t diff = dst[j] - src[j];
 #endif
       const uint32_t error = diff * diff;
-      if (abs(diff) == 2) {
+      if (abs(diff) >= 2) {
         count2++;
-        EXPECT_GT(1, abs(diff)) << "Error: high diff at " << (j / 32) << " " << (j%32) << " " << diff;
       }
+      //EXPECT_GT(1, abs(diff)) << "Error: high diff at " << (j / 32) << " " << (j%32) << " " << diff;
       if (max_error < error) max_error = error;
       total_error += error;
     }
@@ -164,7 +164,7 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
     total_error /= 45;
   }
 
-  EXPECT_EQ(0, count2) << "Error: abs diff of 2 exists";
+  EXPECT_EQ(0, count2) << "Error: abs diff of atleast 2 exists";
   EXPECT_GE(1u << 2 * (bit_depth_ - 8), max_error)
       << "Error: 32x32 FDCT/IDCT has an individual round-trip error > 1";
 
