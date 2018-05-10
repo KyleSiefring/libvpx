@@ -191,7 +191,6 @@ p1 = p0 * c0 - (p1 + p0) * c2/2 = p0 * (c0 - c2/2) - p1 * c2/2
  OD_KERNEL_FUNC(od_rotate_kernel)(p0, p1, v, c0, q0, c1, q1, c2, q2, \
                                   TX_SUB, TX_NONE, shift)
 
-/* Rotate and add. */
 static INLINE void OD_KERNEL_FUNC(od_custom_rotate_kernel)(OD_COEFF *p0, OD_COEFF *p1,
  OD_COEFF v, int c0, int q0, int c1, int q1, int c2, int q2,
  int type, int avg, int shift) {
@@ -204,20 +203,48 @@ static INLINE void OD_KERNEL_FUNC(od_custom_rotate_kernel)(OD_COEFF *p0, OD_COEF
   *p0 = OD_MUL(*p0, c1, q1);
   t = OD_MUL(t, c2, q2);
   //OD_KERNEL_FUNC(od_rot3)(p0, p1, &t, &u, c0, q0, c1, q1, c2, q2);
-  *p0 = OD_ADD(*p0, t);
+  *p0 = type == TX_ADD ? OD_ADD(*p0, t) : OD_SUB(t, *p0);
   if (shift == TX_SHIFT) t = OD_RSHIFT1(t);
   else if (shift == TX_SHIFT+1) t = OD_RSHIFT1_B(t);
-  *p1 = type == TX_ADD ? OD_SUB(t, u) : OD_ADD(t, u);
+  *p1 = type == TX_ADD ? OD_SUB(t, u) : OD_SUB(u, t);
+}
+
+static INLINE void OD_KERNEL_FUNC(od_custom_rotate_neg_kernel)(OD_COEFF *p0, OD_COEFF *p1,
+ int c0, int q0, int c1, int q1, int c2, int q2, int avg) {
+  OD_COEFF u;
+  OD_COEFF t;
+  t = avg ? OD_SUB_AVG(*p1, *p0) : OD_SUB(*p1, *p0);
+  u = OD_MUL(*p1, c0, q0);
+  *p0 = OD_MUL(*p0, c1, q1);
+  t = OD_MUL(t, c2, q2);
+  *p0 = OD_SUB(t, *p0);
+  *p1 = OD_SUB(t, u);
 }
 
 #undef od_custom_rotate_add
 #define od_custom_rotate_add(p0, p1, c0, q0, c1, q1, c2, q2, shift) \
  OD_KERNEL_FUNC(od_custom_rotate_kernel)(p0, p1, *p0, c0, q0, c1, q1, c2, q2, \
                                   TX_ADD, TX_NONE, shift)
-/*#undef od_custom_rotate_sub
+#undef od_custom_rotate_sub
 #define od_custom_rotate_sub(p0, p1, c0, q0, c1, q1, c2, q2, shift) \
  OD_KERNEL_FUNC(od_custom_rotate_kernel)(p0, p1, *p0, c0, q0, c1, q1, c2, q2, \
-                                  TX_SUB, TX_NONE, shift)*/
+                                  TX_SUB, TX_NONE, shift)
+
+#undef od_custom_rotate_add_half
+#define od_custom_rotate_add_half(p0, p1, v, c0, q0, c1, q1, c2, q2, shift) \
+ OD_KERNEL_FUNC(od_custom_rotate_kernel)(p0, p1, v, c0, q0, c1, q1, c2, q2, \
+                                  TX_ADD, TX_NONE, shift)
+#undef od_custom_rotate_sub_half
+#define od_custom_rotate_sub_half(p0, p1, v, c0, q0, c1, q1, c2, q2, shift) \
+ OD_KERNEL_FUNC(od_custom_rotate_kernel)(p0, p1, v, c0, q0, c1, q1, c2, q2, \
+                                  TX_SUB, TX_NONE, shift)
+
+#undef od_custom_rotate_neg
+#define od_custom_rotate_neg(p0, p1, c0, q0, c1, q1, c2, q2) \
+ OD_KERNEL_FUNC(od_custom_rotate_neg_kernel)(p0, p1, c0, q0, c1, q1, c2, q2, TX_NONE)
+#undef od_custom_rotate_neg_avg
+#define od_custom_rotate_neg_avg(p0, p1, c0, q0, c1, q1, c2, q2) \
+ OD_KERNEL_FUNC(od_custom_rotate_neg_kernel)(p0, p1, c0, q0, c1, q1, c2, q2, TX_AVG)
 
 /* Rotate and subtract with negation. */
 static INLINE void OD_KERNEL_FUNC(od_rotate_neg_kernel)(OD_COEFF *p0,
@@ -513,13 +540,13 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_4_asym)(OD_COEFF *q0, OD_COEFF q0h,
 
   /* 11363/16384 = (Sin[5*Pi/16] + Cos[5*Pi/16])/2 = 0.6935199226610738 */
   /* 18081/32768 = (Sin[5*Pi/16] - Cos[5*Pi/16])*2 = 0.5517987585658861 */
-  /*  4551/4096 = Cos[5*Pi/16]*2                  = 1.1111404660392044 */
+  /*  4551/4096 = Cos[5*Pi/16]*2                  = 1.1111404660392044 (18205)*/
   od_rotate_sub_half(q2, q1, q2h, 22725, 15, 18081, 15, 4551, 12, TX_SHIFT);
 
   /* Stage 1 */
 
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(q0, OD_RSHIFT1(*q0), q1);
-  OD_KERNEL_FUNC(od_butterfly_sub_asym)(q2, OD_RSHIFT1_B(*q2), q3);//
+  OD_KERNEL_FUNC(od_butterfly_sub_asym)(q2, OD_RSHIFT1(*q2), q3);
 
   /* Stage 2 */
 #if 1 && defined(OD_MADD)
@@ -638,16 +665,22 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_8)(OD_COEFF *r0, OD_COEFF *r1,
   /* 21845/32768 = Sin[13*Pi/32] - Cos[13*Pi/32] = 0.66665565847774650 */
   /*   1189/4096 = Cos[13*Pi/32]                 = 0.29028467725446233 */
   od_rotate_sub(r6, r1, 40869, 15, 21845, 15, 1189, 12, TX_NONE);
+  /*             = Sin[13*Pi/32]                 = 0.956940336 */
+  //od_custom_rotate_sub(r6, r1, 40869, 15, -21845, 15, 31357, 15, TX_NONE);
 
   /* 22173/16384 = Sin[11*Pi/32] + Cos[11*Pi/32] = 1.3533180011743526 */
   /*   3363/8192 = Sin[11*Pi/32] - Cos[11*Pi/32] = 0.4105245275223574 */
   /* 15447/32768 = Cos[11*Pi/32]                 = 0.47139673682599764 */
   od_rotate_add(r2, r5, 22173, 14, 3363, 13, 15447, 15, TX_NONE);
+  /*             = Sin[11*Pi/32]                 = 0.881921264 */
+  //od_custom_rotate_add(r2, r5, 22173, 14, -3363, 13, 28899, 15, TX_NONE);
 
   /* 23059/16384 = Sin[9*Pi/32] + Cos[9*Pi/32] = 1.4074037375263826 */
   /*  2271/16384 = Sin[9*Pi/32] - Cos[9*Pi/32] = 0.1386171691990915 */
   /*   5197/8192 = Cos[9*Pi/32]                = 0.6343932841636455 */
   od_rotate_sub(r4, r3, 23059, 14, 2271, 14, 5197, 13, TX_NONE);
+  /*             = Sin[9*Pi/32]                 = 0.773010453 */
+  //od_custom_rotate_sub(r4, r3, 23059, 14, -2271, 14, 25330, 15, TX_NONE);
 
   /* Stage 1 */
 
@@ -786,6 +819,41 @@ static INLINE void OD_KERNEL_FUNC(od_fdct_16)(OD_COEFF *s0, OD_COEFF *s1,
   OD_KERNEL_FUNC(od_fdst_8_asym)(sf, sfh, se, sd, sdh, sc, sb, sbh, sa, s9, s9h, s8);
 }
 
+static INLINE void OD_KERNEL_FUNC(od_butterfly_add_div2)(OD_COEFF *p0,
+ OD_COEFF *p1) {
+  OD_COEFF tmp;
+  tmp = OD_ADD(*p1, *p0);
+  *p0 = OD_SUB(*p0, *p1);
+  *p1 = OD_RSHIFT1(tmp);
+  *p0 = OD_RSHIFT1_B(*p0);
+  /* equivelent
+  *p1 = OD_ADD_AVG(*p1, *p0);
+  *p0 = OD_SUB(*p0, *p1);
+  */
+}
+
+static INLINE void OD_KERNEL_FUNC(od_butterfly_neg_div2)(OD_COEFF *p0,
+ OD_COEFF *p1) {
+  OD_COEFF tmp;
+  tmp = OD_ADD(*p0, *p1);
+  *p1 = OD_SUB(*p0, *p1);
+  *p0 = OD_RSHIFT1(tmp);
+  *p1 = OD_RSHIFT1_B(*p1);
+}
+
+static INLINE void OD_KERNEL_FUNC(od_butterfly_sub_div2)(OD_COEFF *p0,
+ OD_COEFF *p1) {
+  OD_COEFF tmp;
+  tmp = OD_SUB(*p1, *p0);
+  *p0 = OD_ADD(*p0, *p1);
+  *p1 = OD_RSHIFT1(tmp);
+  *p0 = OD_RSHIFT1_B(*p0);
+  /* opposite?
+  *p1 = OD_SUB_AVG(*p1, *p0);
+  *p0 = OD_ADD(*p0, *p1);
+  */
+}
+
 /**
  * 16-point asymmetric Type-II fDCT
  */
@@ -795,8 +863,10 @@ static INLINE void OD_KERNEL_FUNC(od_fdct_16_asym)(OD_COEFF *s0, OD_COEFF *s1,
  OD_COEFF *s8, OD_COEFF *s9, OD_COEFF s9h, OD_COEFF *sa, OD_COEFF *sb,
  OD_COEFF sbh, OD_COEFF *sc, OD_COEFF *sd, OD_COEFF sdh, OD_COEFF *se,
  OD_COEFF *sf, OD_COEFF sfh) {
-
+  (void) s1h; (void) s3h; (void) s5h; (void) s7h;
+  (void) s9h; (void) sbh; (void) sdh; (void) sfh;
   /* +/- Butterflies with asymmetric input. */
+/*
   OD_KERNEL_FUNC(od_butterfly_neg_asym)(s0, sf, sfh);
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(s1, s1h, se);
   OD_KERNEL_FUNC(od_butterfly_neg_asym)(s2, sd, sdh);
@@ -805,6 +875,15 @@ static INLINE void OD_KERNEL_FUNC(od_fdct_16_asym)(OD_COEFF *s0, OD_COEFF *s1,
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(s5, s5h, sa);
   OD_KERNEL_FUNC(od_butterfly_neg_asym)(s6, s9, s9h);
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(s7, s7h, s8);
+*/
+  OD_KERNEL_FUNC(od_butterfly_neg_div2)(s0, sf);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s1, se);
+  OD_KERNEL_FUNC(od_butterfly_neg_div2)(s2, sd);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s3, sc);
+  OD_KERNEL_FUNC(od_butterfly_neg_div2)(s4, sb);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s5, sa);
+  OD_KERNEL_FUNC(od_butterfly_neg_div2)(s6, s9);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s7, s8);
 
   /* Embedded 8-point orthonormal transforms. */
   OD_KERNEL_FUNC(od_fdct_8)(s0, s1, s2, s3, s4, s5, s6, s7);
@@ -967,66 +1046,79 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
   /*   1073/2048 = (Sin[31*Pi/64] + Cos[31*Pi/64])/2 = 0.5239315652662953 */
   /* 62241/32768 = (Sin[31*Pi/64] - Cos[31*Pi/64])*2 = 1.8994555637555088 */
   /*   201/16384 = Cos[31*Pi/64]*2                   = 0.0981353486548360 */
-  od_rotate_add_half(s0, sf, s0h, 1073, 11, 62241, 15, 201, 11, TX_SHIFT);
+  //od_rotate_add_half(s0, sf, s0h, 1073, 11, 62241, 15, 201, 11, TX_SHIFT);
   //od_rotate_add(s0, sf, 1073, 11, 31121, 15, 201, 12, TX_SHIFT);
   /*             = (Sin[31*Pi/64] + Cos[31*Pi/64])/2 = 0.5239315652662953 */
   /*             = Cos[31*Pi/64] - Sin[31*Pi/64]     = -0.949727782 */
   /*             = Sin[31*Pi/64]                    = 0.998795456 */
-  //od_custom_rotate_add(s0, sf, 1073, 11, -31121, 15, 32729, 15, TX_SHIFT);
+  od_custom_rotate_add(s0, sf, 1074, 10, -31121, 15, 32729, 15, TX_NONE);
 
   /* 18611/32768 = (Sin[29*Pi/64] + Cos[29*Pi/64])/2 = 0.5679534922100714 */
   /* 55211/32768 = (Sin[29*Pi/64] - Cos[29*Pi/64])*2 = 1.6848920710188384 */
   /*    601/2048 = Cos[29*Pi/64]*2                   = 0.2934609489107235 */
   //od_rotate_sub_half(se, s1, seh, 18611, 15, 55211, 15, 601, 11, TX_SHIFT);
-  od_rotate_sub(se, s1, 18611, 15, 27605, 15, 601, 12, TX_SHIFT);
+  //od_rotate_sub(se, s1, 18611, 15, 27605, 15, 601, 12, TX_SHIFT);
+  /*             = Sin[29*Pi/64]                    = 0.98917651 */
+  od_custom_rotate_sub(se, s1, 18611, 14, -27605, 15, 32413, 15, TX_NONE);
 
   /*  9937/16384 = (Sin[27*Pi/64] + Cos[27*Pi/64])/2 = 0.6065057165489039 */
   /*   1489/1024 = (Sin[27*Pi/64] - Cos[27*Pi/64])*2 = 1.4541021465825602 */
   /*   3981/8192 = Cos[27*Pi/64]*2                   = 0.4859603598065277 */
   //od_rotate_add_half(s2, sd, s2h, 9937, 14, 1489, 10, 3981, 13, TX_SHIFT);
-  od_rotate_add(s2, sd, 9937, 14, 1489, 11, 3981, 14, TX_SHIFT);
+  //od_rotate_add(s2, sd, 9937, 14, 1489, 11, 3981, 14, TX_SHIFT);
   /*             = Sin[27*Pi/64]                    = 0.970031253 */
-  //od_custom_rotate_add(s2, sd, 9937, 14, -1489, 11, 15893, 14, TX_SHIFT);
+  od_custom_rotate_add(s2, sd, 9937, 13, -1489, 11, 15893, 14, TX_NONE);
 
   /* 10473/16384 = (Sin[25*Pi/64] + Cos[25*Pi/64])/2 = 0.6392169592876205 */
   /* 39627/32768 = (Sin[25*Pi/64] - Cos[25*Pi/64])*2 = 1.2093084235816014 */
   /* 11039/16384 = Cos[25*Pi/64]*2                   = 0.6737797067844401 */
   //od_rotate_sub_half(sc, s3, sch, 10473, 14, 39627, 15, 11039, 14, TX_SHIFT);
-  od_rotate_sub(sc, s3, 10473, 14, 19813, 15, 11039, 15, TX_SHIFT);
+  //od_rotate_sub(sc, s3, 10473, 14, 19813, 15, 11039, 15, TX_SHIFT);
+  /*             = Sin[25*Pi/64]                    = 0.941544065 */
+  od_custom_rotate_sub(sc, s3, 10473, 13, -19813, 15, 30852, 15, TX_NONE);
 
   /* 2727/4096 = (Sin[23*Pi/64] + Cos[23*Pi/64])/2 = 0.6657721932768628 */
   /* 3903/4096 = (Sin[23*Pi/64] - Cos[23*Pi/64])*2 = 0.9528683993863225 */
   /* 7005/8192 = Cos[23*Pi/64]*2                   = 0.8551101868605642 */
   //od_rotate_add_half(s4, sb, s4h, 2727, 12, 3903, 12, 7005, 13, TX_SHIFT);
-  od_rotate_add(s4, sb, 2727, 12, 3903, 13, 7005, 14, TX_SHIFT);
+  od_rotate_add(s4, sb, 2727, 11, 3903, 13, 7005, 14, TX_NONE);
   /*             = Sin[23*Pi/64]                    = 0.903989293 */
-  //od_custom_rotate_add(s4, sb, 2727, 12, -3903, 13, 14811, 14, TX_SHIFT);
+  //od_custom_rotate_add(s4, sb, 2727, 12, -3903, 13, 14811, 14, TX_SHIFT);//
+  /* 0.8551101868605642*2^15 = 28020.250603047
+   * 28020 / .250603047   = 111810.292554025
+   * 0.903989293*2^15        = 29621.921153024
+   * 29621÷(1−.921153024) = 375677.058305952
+   */
 
   /* 5619/8192 = (Sin[21*Pi/64] + Cos[21*Pi/64])/2 = 0.6859156770967569 */
   /* 2815/4096 = (Sin[21*Pi/64] - Cos[21*Pi/64])*2 = 0.6872517316141069 */
   /* 8423/8192 = Cos[21*Pi/64]*2                   = 1.0282054883864433 */
   //od_rotate_sub_half(sa, s5, sah, 5619, 13, 2815, 12, 8423, 13, TX_SHIFT);
-  od_rotate_sub(sa, s5, 5619, 13, 2815, 13, 8423, 14, TX_SHIFT);
+  od_rotate_sub(sa, s5, 5619, 12, 2815, 13, 8423, 14, TX_NONE);
+  /*             = Sin[21*Pi/64]                    = 0.85772861 */
+  //od_custom_rotate_sub(sa, s5, 5619, 13, -2815, 13, 28106, 15, TX_SHIFT);
 
   /*   2865/4096 = (Sin[19*Pi/64] + Cos[19*Pi/64])/2 = 0.6994534179865391 */
   /* 13588/32768 = (Sin[19*Pi/64] - Cos[19*Pi/64])*2 = 0.4150164539764232 */
   /*     305/256 = Cos[19*Pi/64]*2                   = 1.1913986089848667 */
   //od_rotate_add_half(s6, s9, s6h, 2865, 12, 13599, 15, 305, 8, TX_SHIFT);
-  od_rotate_add(s6, s9, 2865, 12, 6800, 15, 305, 9, TX_SHIFT);
+  od_rotate_add(s6, s9, 2865, 11, 6800, 15, 305, 9, TX_NONE);
   /*             = Sin[19*Pi/64]                    = 0.803207531 Worse precision*/
   //od_custom_rotate_add(s6, s9, 2865, 12, -6800, 15, 26320, 15, TX_SHIFT);
 
   /* 23143/32768 = (Sin[17*Pi/64] + Cos[17*Pi/64])/2 = 0.7062550401009887 */
   /*   1137/8192 = (Sin[17*Pi/64] - Cos[17*Pi/64])*2 = 0.1387843410158816 */
   /*  11003/8192 = Cos[17*Pi/64]*2                   = 1.3431179096940367 */
-  od_rotate_sub_half(s8, s7, s8h, 23143, 15, 1137, 13, 44011, 15, TX_SHIFT);
-  //od_rotate_sub(s8, s7, 23143, 15, 1137, 14, 11003, 14, TX_SHIFT);
+  //od_rotate_sub_half(s8, s7, s8h, 23143, 15, 1137, 13, 44011, 15, TX_SHIFT);
+  od_rotate_sub(s8, s7, 23143, 14, 1137, 14, 11003, 14, TX_NONE);
   /* 23143/32768 = (Sin[17*Pi/64] + Cos[17*Pi/64])/2 = 0.7062550401009887 */
   /*  1137/16384 = Sin[17*Pi/64] - Cos[17*Pi/64]     = -0.069392171 */
   /* 24279/32768 = Sin[17*Pi/64]                     = 0.740951125 */
   //od_custom_rotate_sub(s8, s7, 23143, 15, -1137, 14, 24279, 15, TX_SHIFT);
+
   /* Stage 1 */
 
+  /*
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(s0, OD_RSHIFT1(*s0), s7);
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(s8, OD_RSHIFT1(*s8), sf);
   OD_KERNEL_FUNC(od_butterfly_add_asym)(s4, OD_RSHIFT1(*s4), s3);
@@ -1035,6 +1127,16 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
   OD_KERNEL_FUNC(od_butterfly_sub_asym)(sa, OD_RSHIFT1(*sa), sd);
   OD_KERNEL_FUNC(od_butterfly_add_asym)(s6, OD_RSHIFT1(*s6), s1);
   OD_KERNEL_FUNC(od_butterfly_add_asym)(se, OD_RSHIFT1(*se), s9);
+  */
+
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s0, s7);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s8, sf);
+  OD_KERNEL_FUNC(od_butterfly_add_div2)(s4, s3);
+  OD_KERNEL_FUNC(od_butterfly_add_div2)(sc, sb);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(s2, s5);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(sa, sd);
+  OD_KERNEL_FUNC(od_butterfly_add_div2)(s6, s1);
+  OD_KERNEL_FUNC(od_butterfly_add_div2)(se, s9);
 
   /* Stage 2 */
 
@@ -1053,21 +1155,32 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
   /* 12873/16384 = Sin[7*Pi/16] - Cos[7*Pi/16] = 0.7856949583871022 */
   /*  6393/32768 = Cos[7*Pi/16]                = 0.1950903220161283 */
   od_rotate_add(s8, s7, 38531, 15, 12873, 14, 6393, 15, TX_NONE);
+  /*             = Sin[7*Pi/16]                = 0.98078528 */
+  /* 0.1950903220161283*2^15 = 6392.719671824
+   * 6392÷(1−.719671824      = 22801.846361673
+   * 0.903989293*2^15        = 32138.37205504
+   * 32138÷.37205504         = 86379.692639025
+   */
+  //od_custom_rotate_add(s8, s7, 38531, 15, -12873, 14, 32138, 15, TX_NONE);
 
   /* 45451/32768 = Sin[5*Pi/16] + Cos[5*Pi/16] = 1.3870398453221475 */
   /*  9041/32768 = Sin[5*Pi/16] - Cos[5*Pi/16] = 0.2758993792829431 */
-  /*   4551/8192 = Cos[5*Pi/16]                = 0.5555702330196022 */
+  /*   4551/8192 = Cos[5*Pi/16]                = 0.5555702330196022 (18205)*/
   od_rotate_add(s9, s6, 22725, 14, 9041, 15, 4551, 13, TX_NONE);
+  /*             = Sin[5*Pi/16]                = 0.831469612 */
+  //od_custom_rotate_add(s9, s6, 22725, 14, -9041, 15, 27246, 15, TX_NONE);//
 
   /*  11363/8192 = Sin[5*Pi/16] + Cos[5*Pi/16] = 1.3870398453221475 */
   /*  9041/32768 = Sin[5*Pi/16] - Cos[5*Pi/16] = 0.2758993792829431 */
-  /*   4551/8192 = Cos[5*Pi/16]                = 0.5555702330196022 */
+  /*   4551/8192 = Cos[5*Pi/16]                = 0.5555702330196022 (18205)*/
   od_rotate_neg(s5, sa, 22725, 14, 9041, 15, 4551, 13);
+  //od_custom_rotate_neg(s5, sa, 22725, 14, -9041, 15, 27246, 15);
 
   /*  9633/32768 = Sin[7*Pi/16] + Cos[7*Pi/16] = 1.1758756024193586 */
   /* 12873/16384 = Sin[7*Pi/16] - Cos[7*Pi/16] = 0.7856949583871022 */
   /*  6393/32768 = Cos[7*Pi/16]                = 0.1950903220161283 */
   od_rotate_neg(s4, sb, 38531, 15, 12873, 14, 6393, 15);
+  //od_custom_rotate_neg(s4, sb, 38531, 15, -12873, 14, 32138, 15);//
 
   /* Stage 4 */
 
@@ -1084,13 +1197,16 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
 
   /*  10703/8192 = Sin[3*Pi/8] + Cos[3*Pi/8] = 1.3065629648763766 */
   /*  8867/16384 = Sin[3*Pi/8] - Cos[3*Pi/8] = 0.5411961001461969 */
-  /*   3135/8192 = Cos[7*Pi/8]               = 0.3826834323650898 */
+  /*   3135/8192 = Cos[3*Pi/8]               = 0.3826834323650898 */
   od_rotate_add(sc, s3, 42813, 15, 8867, 14, 3135, 13, TX_NONE);
+  /*             = Sin[3*Pi/8]                = 0.923879533 */
+  //od_custom_rotate_add(sc, s3, 42813, 15, -8867, 14, 30274, 15, TX_NONE);//
 
   /*  10703/8192 = Sin[3*Pi/8] + Cos[3*Pi/8] = 1.3065629648763766 */
   /*  8867/16384 = Sin[3*Pi/8] - Cos[3*Pi/8] = 0.5411961001461969 */
   /*   3135/8192 = Cos[3*Pi/8]               = 0.3826834323650898 */
   od_rotate_neg(s2, sd, 42813, 15, 8867, 14, 3135, 13);
+  //od_custom_rotate_neg(s2, sd, 42813, 15, -8867, 14, 30274, 15);//
 
   /* 11585/8192 = Sin[Pi/4] + Cos[Pi/4] = 1.4142135623730951 */
   /*  5793/8192 = Cos[Pi/4]             = 0.7071067811865475 */
@@ -1113,14 +1229,6 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
 
     p0 = p0 + p1;
     p1 = p1 - p0/2; */
-/*static INLINE void OD_KERNEL_FUNC(od_butterfly_add)(OD_COEFF *p0,
- OD_COEFF *p0h, OD_COEFF *p1) {
-  OD_COEFF p0h_;
-  *p0 = OD_ADD(*p0, *p1);  p0 + p1
-  p0h_ = OD_RSHIFT1(*p0);  (p0 + p1)/2
-  *p1 = OD_SUB(*p1, p0h_); p1 - (p0 + p1)/2 = (p1 - p0)/2
-  if (p0h != NULL) *p0h = p0h_;
-}*/
 static INLINE void OD_KERNEL_FUNC(cod_butterfly_add)(OD_COEFF *p0,
  OD_COEFF *p0h, OD_COEFF *p1, int rshift_type) {
   OD_COEFF t;
@@ -1132,6 +1240,16 @@ static INLINE void OD_KERNEL_FUNC(cod_butterfly_add)(OD_COEFF *p0,
     *p0h = OD_RSHIFT1_B(*p0);
   }
   *p1 = t;
+}
+
+static INLINE void OD_KERNEL_FUNC(od_butterfly_neg_sym)(OD_COEFF *p0,
+ OD_COEFF *p1, OD_COEFF *p1h) {
+  OD_COEFF t;
+  t = OD_SUB(*p0, *p1);
+  *p0 = OD_ADD(*p1, *p0);
+  *p1 = t;
+  *p1h = OD_RSHIFT1(*p1); //unused
+  //*p0 = OD_RSHIFT1(*p0);
 }
 
 /**
@@ -1172,18 +1290,19 @@ static INLINE void OD_KERNEL_FUNC(od_fdct_32)(OD_COEFF *t0, OD_COEFF *t1,
   OD_COEFF tvh;
 
   /* +/- Butterflies with asymmetric output. */
+/*
   OD_KERNEL_FUNC(od_butterfly_neg)(t0, tv, &tvh);
-  //OD_KERNEL_FUNC(od_butterfly_add)(t1, &t1h, tu);//
+  //OD_KERNEL_FUNC(od_butterfly_add)(t1, &t1h, tu);
   OD_KERNEL_FUNC(cod_butterfly_add)(t1, &t1h, tu, 0);
   OD_KERNEL_FUNC(od_butterfly_neg)(t2, tt, &tth);
-  //OD_KERNEL_FUNC(od_butterfly_add)(t3, &t3h, ts);//
+  //OD_KERNEL_FUNC(od_butterfly_add)(t3, &t3h, ts);
   OD_KERNEL_FUNC(cod_butterfly_add)(t3, &t3h, ts, 0);
   OD_KERNEL_FUNC(od_butterfly_neg)(t4, tr, &trh);
   //OD_KERNEL_FUNC(od_butterfly_add)(t5, &t5h, tq);
   OD_KERNEL_FUNC(cod_butterfly_add)(t5, &t5h, tq, 0);
   OD_KERNEL_FUNC(od_butterfly_neg)(t6, tp, &tph);
-  OD_KERNEL_FUNC(od_butterfly_add)(t7, &t7h, to);//
-  //OD_KERNEL_FUNC(cod_butterfly_add)(t7, &t7h, to, 0);
+  //OD_KERNEL_FUNC(od_butterfly_add)(t7, &t7h, to);
+  OD_KERNEL_FUNC(cod_butterfly_add)(t7, &t7h, to, 0);
   OD_KERNEL_FUNC(od_butterfly_neg)(t8, tn, &tnh);
   //OD_KERNEL_FUNC(od_butterfly_add)(t9, &t9h, tm);
   OD_KERNEL_FUNC(cod_butterfly_add)(t9, &t9h, tm, 0);
@@ -1194,27 +1313,26 @@ static INLINE void OD_KERNEL_FUNC(od_fdct_32)(OD_COEFF *t0, OD_COEFF *t1,
   //OD_KERNEL_FUNC(od_butterfly_add)(td, &tdh, ti);
   OD_KERNEL_FUNC(cod_butterfly_add)(td, &tdh, ti, 0);
   OD_KERNEL_FUNC(od_butterfly_neg)(te, th, &thh);
-  OD_KERNEL_FUNC(od_butterfly_add)(tf, &tfh, tg);
-  //OD_KERNEL_FUNC(cod_butterfly_add)(tf, &tfh, tg, 0);
+  //OD_KERNEL_FUNC(od_butterfly_add)(tf, &tfh, tg);
+  OD_KERNEL_FUNC(cod_butterfly_add)(tf, &tfh, tg, 0);
+*/
 
-  /*#define X0(a, b, c) *a = OD_RSHIFT1(*a); *b = OD_RSHIFT1(*b); *(c) = OD_RSHIFT1(*(c));
-  X0(t0, tv, &tvh);
-  X0(t1, &t1h, tu);
-  X0(t2, tt, &tth);
-  X0(t3, &t3h, ts);
-  X0(t4, tr, &trh);
-  X0(t5, &t5h, tq);
-  X0(t6, tp, &tph);
-  X0(t7, &t7h, to);
-  X0(t8, tn, &tnh);
-  X0(t9, &t9h, tm);
-  X0(ta, tl, &tlh);
-  X0(tb, &tbh, tk);
-  X0(tc, tj, &tjh);
-  X0(td, &tdh, ti);
-  X0(te, th, &thh);
-  X0(tf, &tfh, tg);
-  #undef X0*/
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(t0, tv, &tvh);
+  OD_KERNEL_FUNC(cod_butterfly_add)(t1, &t1h, tu, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(t2, tt, &tth);
+  OD_KERNEL_FUNC(cod_butterfly_add)(t3, &t3h, ts, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(t4, tr, &trh);
+  OD_KERNEL_FUNC(cod_butterfly_add)(t5, &t5h, tq, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(t6, tp, &tph);
+  OD_KERNEL_FUNC(cod_butterfly_add)(t7, &t7h, to, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(t8, tn, &tnh);
+  OD_KERNEL_FUNC(cod_butterfly_add)(t9, &t9h, tm, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(ta, tl, &tlh);
+  OD_KERNEL_FUNC(cod_butterfly_add)(tb, &tbh, tk, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(tc, tj, &tjh);
+  OD_KERNEL_FUNC(cod_butterfly_add)(td, &tdh, ti, 0);
+  OD_KERNEL_FUNC(od_butterfly_neg_sym)(te, th, &thh);
+  OD_KERNEL_FUNC(cod_butterfly_add)(tf, &tfh, tg, 0);
 
   /* Embedded 16-point transforms with asymmetric input. */
   OD_KERNEL_FUNC(od_fdct_16_asym)(
