@@ -13,8 +13,22 @@
 #include "./vpx_dsp_rtcd.h"
 #include "vpx_dsp/daala_tx.h"
 
+#include <stdio.h>
+
 #define pair_set_epi16(a, b) \
   _mm256_set1_epi32((int32_t)(((uint16_t)(a)) | (((uint32_t)(b)) << 16)))
+
+typedef struct {
+  __m256i lo;
+  __m256i hi;
+} od_coeff_w;
+
+static INLINE od_coeff_w od_mm256_unpack(__m256i a, __m256i b) {
+  od_coeff_w out;
+  out.lo = _mm256_unpacklo_epi16(a, b);
+  out.hi = _mm256_unpackhi_epi16(a, b);
+  return out;
+}
 
 static INLINE __m256i od_mm256_madd_epi16(__m256i a, __m256i b, int16_t c0, int16_t c1, const int r) {
   const __m256i pair = pair_set_epi16(c0, c1);
@@ -68,6 +82,32 @@ static INLINE __m256i od_mm256_sub_avg_epi16(__m256i a, __m256i b) {
 #endif
 }
 
+static INLINE __m256i od_mm256_add_avg_bias_epi16(__m256i a, __m256i b, int tx_bias) {
+  __m256i sign_mask;
+  sign_mask = _mm256_set1_epi16(0x7FFF + tx_bias);
+  return _mm256_xor_si256(_mm256_avg_epu16(_mm256_xor_si256(a, sign_mask),
+                                           _mm256_xor_si256(b, sign_mask)),
+                          sign_mask);
+}
+
+static INLINE __m256i od_mm256_sub_avg_bias_epi16(__m256i a, __m256i b, int tx_bias) {
+  if(tx_bias) {
+    __m256i sign_bit;
+    sign_bit = _mm256_set1_epi16(0x8000);
+    return _mm256_xor_si256(_mm256_avg_epu16(_mm256_xor_si256(a, sign_bit),
+                                             _mm256_sub_epi16(sign_bit, b)),
+                            sign_bit);
+  } else {
+    __m256i sign_bit;
+    __m256i sign_mask;
+    sign_bit = _mm256_set1_epi16(0x8000);
+    sign_mask = _mm256_set1_epi16(0x7FFF);
+    return _mm256_xor_si256(_mm256_avg_epu16(_mm256_xor_si256(a, sign_bit),
+                                             _mm256_xor_si256(b, sign_mask)),
+                            sign_bit);
+  }
+}
+
 static INLINE void od_mm256_swap_si256(__m256i *q0, __m256i *q1) {
   __m256i t;
   t = *q0;
@@ -112,9 +152,10 @@ static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
 #define OD_SUB _mm256_sub_epi16
 #define OD_RSHIFT1_B od_mm256_unbiased_rshift1_epi16
 #define OD_RSHIFT1 od_mm256_rshift1_epi16
-//#define OD_RSHIFT1 od_mm256_unbiased_rshift1_epi16
 #define OD_ADD_AVG od_mm256_add_avg_epi16
 #define OD_SUB_AVG od_mm256_sub_avg_epi16
+#define OD_ADD_AVG_BIAS od_mm256_add_avg_bias_epi16
+#define OD_SUB_AVG_BIAS od_mm256_sub_avg_bias_epi16
 #define OD_MUL od_mm256_mul_epi16
 //#define OD_MADD od_mm256_madd_epi16
 #define OD_SWAP od_mm256_swap_si256
@@ -131,6 +172,16 @@ static __m256i load_pass1(const int16_t *ptr) {
 static __m256i load_pass2(const int16_t *ptr) {
   __m256i ret, sign;
   ret = _mm256_loadu_si256((const __m256i *)ptr);
+
+  /*__m256i tmp = _mm256_cmpgt_epi16(_mm256_abs_epi16(ret),
+                                   _mm256_set1_epi16(16383));//ret > 2^14
+  if(!_mm256_testz_si256(tmp, tmp)) {
+    for (int i = 0; i < 16; i++) {
+      fprintf(stderr, "%d ", ptr[i]);
+    }
+    fprintf(stderr, "\n");
+  }*/
+
   sign = _mm256_cmpgt_epi16(ret, _mm256_set1_epi16(0));
   ret = _mm256_sub_epi16(ret, sign);
   ret = _mm256_add_epi16(ret, _mm256_set1_epi16(1));

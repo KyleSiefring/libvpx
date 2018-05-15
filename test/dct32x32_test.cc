@@ -168,7 +168,7 @@ TEST_P(Trans32x32Test, AccuracyCheck) {
   EXPECT_GE(1u << 2 * (bit_depth_ - 8), max_error)
       << "Error: 32x32 FDCT/IDCT has an individual round-trip error > 1";
 
-  EXPECT_GE(count_test_block >> 1 << 2 * (bit_depth_ - 8), total_error)
+  EXPECT_GE(count_test_block >> 2 << 2 * (bit_depth_ - 8), total_error)
       << "Error: 32x32 FDCT/IDCT has average round-trip error > 1 per block";
 }
 
