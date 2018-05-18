@@ -185,7 +185,7 @@ TEST_P(Trans32x32Test, CoeffCheck) {
 
   for (int i = 0; i < count_test_block; ++i) {
     for (int j = 0; j < kNumCoeffs; ++j) {
-      input_block[j] = (rnd.Rand16() & mask_) - (rnd.Rand16() & mask_);
+      input_block[j] = ((rnd.Rand16() & mask_) - (rnd.Rand16() & mask_));
     }
 
     const int stride = 32;

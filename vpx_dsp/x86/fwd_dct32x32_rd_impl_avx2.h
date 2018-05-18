@@ -21,16 +21,21 @@
 typedef struct {
   __m256i lo;
   __m256i hi;
-} od_coeff_w;
+} __m256i_w;
 
-static INLINE od_coeff_w od_mm256_unpack(__m256i a, __m256i b) {
-  od_coeff_w out;
+static INLINE __m256i_w od_mm256_unpack_epi16(__m256i a, __m256i b) {
+  __m256i_w out;
   out.lo = _mm256_unpacklo_epi16(a, b);
   out.hi = _mm256_unpackhi_epi16(a, b);
   return out;
 }
 
-static INLINE __m256i od_mm256_madd_epi16(__m256i a, __m256i b, int16_t c0, int16_t c1, const int r) {
+static INLINE __m256i_w od_mm256_madd_epi16(__m256i_w a, int16_t b) {
+  __m256i mul = _mm256_set1_epi16(b);
+  return a;
+}
+
+/*static INLINE __m256i od_mm256_madd_epi16(__m256i a, __m256i b, int16_t c0, int16_t c1, const int r) {
   const __m256i pair = pair_set_epi16(c0, c1);
   __m256i lo, hi;
   lo = _mm256_unpacklo_epi16(a, b);
@@ -42,7 +47,7 @@ static INLINE __m256i od_mm256_madd_epi16(__m256i a, __m256i b, int16_t c0, int1
   lo = _mm256_srai_epi32(lo, r);
   hi = _mm256_srai_epi32(hi, r);
   return _mm256_packs_epi32(lo, hi);
-}
+}*/
 
 static INLINE __m256i od_mm256_unbiased_rshift1_epi16(__m256i a) {
   //return _mm256_srai_epi16(_mm256_add_epi16(_mm256_srli_epi16(a, 15), a), 1);
@@ -88,6 +93,18 @@ static INLINE __m256i od_mm256_add_avg_bias_epi16(__m256i a, __m256i b, int tx_b
   return _mm256_xor_si256(_mm256_avg_epu16(_mm256_xor_si256(a, sign_mask),
                                            _mm256_xor_si256(b, sign_mask)),
                           sign_mask);
+  /*__m256i sign_mask, sign;
+  // if (x > 0) -1
+  sign = _mm256_cmpgt_epi16(_mm256_adds_epi16(a, b), _mm256_set1_epi16(0));
+  if (tx_bias) {
+    sign_mask = _mm256_sub_epi16(_mm256_set1_epi16(0x7FFF), sign);//round away from 0
+  }
+  else {
+    sign_mask = _mm256_add_epi16(_mm256_set1_epi16(0x8000), sign);//round towards 0
+  }
+  return _mm256_xor_si256(_mm256_avg_epu16(_mm256_xor_si256(a, sign_mask),
+                                           _mm256_xor_si256(b, sign_mask)),
+                          sign_mask);*/
 }
 
 static INLINE __m256i od_mm256_sub_avg_bias_epi16(__m256i a, __m256i b, int tx_bias) {
@@ -106,6 +123,23 @@ static INLINE __m256i od_mm256_sub_avg_bias_epi16(__m256i a, __m256i b, int tx_b
                                              _mm256_xor_si256(b, sign_mask)),
                             sign_bit);
   }
+  /*__m256i sign_bit;
+  __m256i sign_mask;
+  if (tx_bias) {
+    __m256i sign;
+    sign = _mm256_cmpgt_epi16(_mm256_adds_epi16(a, b), _mm256_set1_epi16(0));
+    a = _mm256_sub_epi16(a, sign);
+  }
+  else {
+    __m256i sign;
+    sign = _mm256_cmpgt_epi16(_mm256_set1_epi16(0), _mm256_adds_epi16(a, b));
+    a = _mm256_sub_epi16(a, sign);
+  }
+  sign_bit = _mm256_set1_epi16(0x8000);
+  sign_mask = _mm256_set1_epi16(0x7FFF);
+  return _mm256_xor_si256(_mm256_avg_epu16(_mm256_xor_si256(a, sign_bit),
+                                           _mm256_xor_si256(b, sign_mask)),
+                          sign_bit);*/
 }
 
 static INLINE void od_mm256_swap_si256(__m256i *q0, __m256i *q1) {
