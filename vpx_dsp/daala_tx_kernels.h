@@ -1356,58 +1356,23 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
 
   /* Stage 1 */
 
-  /*
-  OD_KERNEL_FUNC(od_butterfly_sub_asym)(s0, OD_RSHIFT1(*s0), s7);
-  OD_KERNEL_FUNC(od_butterfly_sub_asym)(s8, OD_RSHIFT1(*s8), sf);
-  OD_KERNEL_FUNC(od_butterfly_add_asym)(s4, OD_RSHIFT1(*s4), s3);
-  OD_KERNEL_FUNC(od_butterfly_add_asym)(sc, OD_RSHIFT1(*sc), sb);
-  OD_KERNEL_FUNC(od_butterfly_sub_asym)(s2, OD_RSHIFT1(*s2), s5);
-  OD_KERNEL_FUNC(od_butterfly_sub_asym)(sa, OD_RSHIFT1(*sa), sd);
-  OD_KERNEL_FUNC(od_butterfly_add_asym)(s6, OD_RSHIFT1(*s6), s1);
-  OD_KERNEL_FUNC(od_butterfly_add_asym)(se, OD_RSHIFT1(*se), s9);
-  */
-
-/*
-  OD_KERNEL_FUNC(od_butterfly_sub_div2)(1, s0, s7); //1.230186606
-  OD_KERNEL_FUNC(od_butterfly_sub_div2)(1, s8, sf); //1.230186606
-  OD_KERNEL_FUNC(od_butterfly_add_div2)(1, s4, s3); //1.304989153
-  OD_KERNEL_FUNC(od_butterfly_add_div2)(1, sc, sb); //1.304989153
-  OD_KERNEL_FUNC(od_butterfly_sub_div2)(1, s2, s5); //1.292421394
-  OD_KERNEL_FUNC(od_butterfly_sub_div2)(1, sa, sd); //1.292421394
-  OD_KERNEL_FUNC(od_butterfly_add_div2)(1, s6, s1); //1.26740691
-  OD_KERNEL_FUNC(od_butterfly_add_div2)(1, se, s9); //1.26740691
-*/
-
   //*4
-  OD_KERNEL_FUNC(od_butterfly_sub_div1)(s0, s7); //1.230186606
-  OD_KERNEL_FUNC(od_butterfly_sub_div1)(s8, sf); //1.230186606
-  OD_KERNEL_FUNC(od_butterfly_add_div1)(s4, s3); //1.304989153
-  OD_KERNEL_FUNC(od_butterfly_add_div1)(sc, sb); //1.304989153
-  OD_KERNEL_FUNC(od_butterfly_sub_div1)(s2, s5); //1.292421394
-  OD_KERNEL_FUNC(od_butterfly_sub_div1)(sa, sd); //1.292421394
-  OD_KERNEL_FUNC(od_butterfly_add_div1)(s6, s1); //1.26740691
-  OD_KERNEL_FUNC(od_butterfly_add_div1)(se, s9); //1.26740691
+  OD_KERNEL_FUNC(od_butterfly_sub_div1)(s0, s7);
+  OD_KERNEL_FUNC(od_butterfly_sub_div1)(s8, sf);
+  OD_KERNEL_FUNC(od_butterfly_add_div1)(s4, s3);
+  OD_KERNEL_FUNC(od_butterfly_add_div1)(sc, sb);
+  OD_KERNEL_FUNC(od_butterfly_sub_div1)(s2, s5);
+  OD_KERNEL_FUNC(od_butterfly_sub_div1)(sa, sd);
+  OD_KERNEL_FUNC(od_butterfly_add_div1)(s6, s1);
+  OD_KERNEL_FUNC(od_butterfly_add_div1)(se, s9);
 
   /* Stage 2 */
 
-/*
-  OD_KERNEL_FUNC(od_butterfly_add)(s8, NULL, s4); //1.267587879
-  //s8, s4 -> s8*2, s4
-  OD_KERNEL_FUNC(od_butterfly_add)(s7, NULL, sb); //1.267587879
-  OD_KERNEL_FUNC(od_butterfly_sub)(sa, NULL, s6); //1.279914152
-  OD_KERNEL_FUNC(od_butterfly_sub)(s5, NULL, s9); //1.279914152
-  OD_KERNEL_FUNC(od_butterfly_add)(s0, &s0h, s3); //1.267587879
-  //s0, s3 -> s0*2, s3
-  OD_KERNEL_FUNC(od_butterfly_add)(sd, &sdh, se); //1.279914152
-  OD_KERNEL_FUNC(od_butterfly_sub)(s2, &s2h, s1); //1.279914152
-  OD_KERNEL_FUNC(od_butterfly_sub)(sf, &sfh, sc); //1.267587879
-*/
-
   //*4
-  OD_KERNEL_FUNC(od_butterfly_add_sym_avg)(1, s8, s4); //1.267587879
-  OD_KERNEL_FUNC(od_butterfly_add_sym_avg)(1, s7, sb); //1.267587879
-  OD_KERNEL_FUNC(od_butterfly_sub_sym_avg)(1, sa, s6); //1.279914152
-  OD_KERNEL_FUNC(od_butterfly_sub_sym_avg)(1, s5, s9); //1.279914152
+  OD_KERNEL_FUNC(od_butterfly_add_sym_avg)(1, s8, s4);
+  OD_KERNEL_FUNC(od_butterfly_add_sym_avg)(1, s7, sb);
+  OD_KERNEL_FUNC(od_butterfly_sub_sym_avg)(1, sa, s6);
+  OD_KERNEL_FUNC(od_butterfly_sub_sym_avg)(0, s5, s9);
   OD_KERNEL_FUNC(od_butterfly_add_sym_avg)(1, s0, s3);
   OD_KERNEL_FUNC(od_butterfly_add_sym_avg)(1, sd, se);
   OD_KERNEL_FUNC(od_butterfly_sub_sym_avg)(1, s2, s1);
@@ -1464,22 +1429,13 @@ static INLINE void OD_KERNEL_FUNC(od_fdst_16_asym)(OD_COEFF *s0, OD_COEFF s0h,
 
   /* Stage 4 */
 
-  /*OD_KERNEL_FUNC(od_butterfly_add_asym)(s2, s2h, sc);
-  OD_KERNEL_FUNC(od_butterfly_sub_asym)(s0, s0h, s1);
-  OD_KERNEL_FUNC(od_butterfly_add_asym)(sf, sfh, se);
-  OD_KERNEL_FUNC(od_butterfly_add_asym)(sd, sdh, s3);*/
-  //OD_KERNEL_FUNC(od_butterfly_add_asym)(s7, OD_RSHIFT1(*s7), s6);
-  //OD_KERNEL_FUNC(od_butterfly_sub_asym)(s8, OD_RSHIFT1(*s8), s9);
-  //OD_KERNEL_FUNC(od_butterfly_sub_asym)(sa, OD_RSHIFT1(*sa), sb);
-  //OD_KERNEL_FUNC(od_butterfly_add_asym)(s5, OD_RSHIFT1(*s5), s4);
-
   OD_KERNEL_FUNC(od_butterfly_add_div2)(0, s2, sc);
   OD_KERNEL_FUNC(od_butterfly_sub_div2)(0, s0, s1);
   OD_KERNEL_FUNC(od_butterfly_add_div2)(0, sf, se);
   OD_KERNEL_FUNC(od_butterfly_add_div2)(0, sd, s3);
   OD_KERNEL_FUNC(od_butterfly_add_div2)(0, s7, s6);
   OD_KERNEL_FUNC(od_butterfly_sub_div2)(0, s8, s9);
-  OD_KERNEL_FUNC(od_butterfly_sub_div2)(0, sa, sb);
+  OD_KERNEL_FUNC(od_butterfly_sub_div2)(1, sa, sb);
   OD_KERNEL_FUNC(od_butterfly_add_div2)(0, s5, s4);
 
   /* Stage 5 */
