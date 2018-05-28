@@ -206,14 +206,14 @@ TEST_P(Trans32x32Test, CoeffCheck) {
     }
   }
   EXPECT_GE(0, total_error) << "High error";
-  printf("\n");
+  /*printf("\n");
   for (int i = 0; i < 32; ++i) {
     for (int j = 0; j < 32; ++j) {
       printf("%0.3f ", all_error[i*32 + j]/(double)count_test_block);
     }
     printf("\n");
   }
-  printf("\n");
+  printf("\n");*/
 }
 
 TEST_P(Trans32x32Test, MemCheck) {

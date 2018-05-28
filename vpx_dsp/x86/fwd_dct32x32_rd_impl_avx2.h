@@ -180,6 +180,7 @@ static INLINE __m256i od_mm256_mul_epi16(__m256i a, int32_t b, int r) {
 #undef OD_SWAP
 
 /* Define 16-wide 16-bit AVX2 kernels. */
+#define OD_IS_AVX2 0
 #define OD_KERNEL kernel16_epi16
 #define OD_COEFF __m256i
 #define OD_ADD _mm256_add_epi16
