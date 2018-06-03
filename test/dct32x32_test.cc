@@ -193,18 +193,15 @@ TEST_P(Trans32x32Test, CoeffCheck) {
             << "Error: 32x32 FDCT rd has mismatched coefficients";
     }
 
-    /*for (int x = 0; x < 32; ++x) {
-      for (int y = 0; y < 32; y+=8)
-        printf("%4d ", output_block[x*32 + y]);
-      printf("\n");
-    }
-    printf("\n");
     for (int x = 0; x < 32; ++x) {
-      for (int y = 0; y < 32; y+=8)
+      for (int y = 0; y < 32; y+=4)
+        printf("%4d ", output_block[x*32 + y]- output_ref_block[x*32 + y]);
+      printf("     ");
+      for (int y = 0; y < 32; y+=4)
         printf("%4d ", output_ref_block[x*32 + y]);
       printf("\n");
     }
-    break;*/
+    break;
   }
 }
 
