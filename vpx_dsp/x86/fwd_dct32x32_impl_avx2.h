@@ -2491,22 +2491,15 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             _mm_storeu_si128((__m128i *)(output_currStep + 3 * 32 + 8),
                              _mm256_castsi256_si128(tr2_7));
 
-            _mm_storeu_si128((__m128i *)(output_nextStep + 0 * 32),
-                             _mm256_extractf128_si256(tr2_0, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 1 * 32),
-                             _mm256_extractf128_si256(tr2_1, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 2 * 32),
-                             _mm256_extractf128_si256(tr2_2, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 3 * 32),
-                             _mm256_extractf128_si256(tr2_3, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 0 * 32 + 8),
-                             _mm256_extractf128_si256(tr2_4, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 1 * 32 + 8),
-                             _mm256_extractf128_si256(tr2_5, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 2 * 32 + 8),
-                             _mm256_extractf128_si256(tr2_6, 1));
-            _mm_storeu_si128((__m128i *)(output_nextStep + 3 * 32 + 8),
-                             _mm256_extractf128_si256(tr2_7, 1));
+            tr2_0 = _mm256_permute2x128_si256(tr2_0, tr2_4, (1) | (3 << 4));
+            tr2_1 = _mm256_permute2x128_si256(tr2_1, tr2_5, (1) | (3 << 4));
+            tr2_2 = _mm256_permute2x128_si256(tr2_2, tr2_6, (1) | (3 << 4));
+            tr2_3 = _mm256_permute2x128_si256(tr2_3, tr2_7, (1) | (3 << 4));
+            _mm256_storeu_si256((__m256i *)(output_nextStep + 0 * 32), tr2_0);
+            _mm256_storeu_si256((__m256i *)(output_nextStep + 1 * 32), tr2_1);
+            _mm256_storeu_si256((__m256i *)(output_nextStep + 2 * 32), tr2_2);
+            _mm256_storeu_si256((__m256i *)(output_nextStep + 3 * 32), tr2_3);
+
             // Process next 8x8
             output_currStep += 16;
             output_nextStep += 16;
