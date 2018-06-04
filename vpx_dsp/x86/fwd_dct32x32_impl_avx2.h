@@ -829,11 +829,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           const __m256i out_08_7 = _mm256_srai_epi32(out_08_5, DCT_CONST_BITS);
           const __m256i out_24_6 = _mm256_srai_epi32(out_24_4, DCT_CONST_BITS);
           const __m256i out_24_7 = _mm256_srai_epi32(out_24_5, DCT_CONST_BITS);
-          // Combine
-          /*out[0] = _mm256_packs_epi32(out_00_6, out_00_7);
-          out[16] = _mm256_packs_epi32(out_16_6, out_16_7);
-          out[8] = _mm256_packs_epi32(out_08_6, out_08_7);
-          out[24] = _mm256_packs_epi32(out_24_6, out_24_7);*/
+          // Combine out of order to begin transposing
           out[0] = _mm256_packs_epi32(out_00_6, out_08_6);
           out[16] = _mm256_packs_epi32(out_00_7, out_08_7);
           out[8] = _mm256_packs_epi32(out_16_6, out_24_6);
@@ -952,11 +948,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           const __m256i out_12_7 = _mm256_srai_epi32(out_12_5, DCT_CONST_BITS);
           const __m256i out_28_6 = _mm256_srai_epi32(out_28_4, DCT_CONST_BITS);
           const __m256i out_28_7 = _mm256_srai_epi32(out_28_5, DCT_CONST_BITS);
-          // Combine
-          /*out[4] = _mm256_packs_epi32(out_04_6, out_04_7);
-          out[20] = _mm256_packs_epi32(out_20_6, out_20_7);
-          out[12] = _mm256_packs_epi32(out_12_6, out_12_7);
-          out[28] = _mm256_packs_epi32(out_28_6, out_28_7);*/
+          // Combine out of order to begin transposing
           out[4] = _mm256_packs_epi32(out_04_6, out_12_6);
           out[20] = _mm256_packs_epi32(out_04_7, out_12_7);
           out[12] = _mm256_packs_epi32(out_20_6, out_28_6);
@@ -1148,15 +1140,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           const __m256i out_14_7 = _mm256_srai_epi32(out_14_5, DCT_CONST_BITS);
           const __m256i out_30_6 = _mm256_srai_epi32(out_30_4, DCT_CONST_BITS);
           const __m256i out_30_7 = _mm256_srai_epi32(out_30_5, DCT_CONST_BITS);
-          // Combine
-          /*out[2] = _mm256_packs_epi32(out_02_6, out_02_7);
-          out[18] = _mm256_packs_epi32(out_18_6, out_18_7);
-          out[10] = _mm256_packs_epi32(out_10_6, out_10_7);
-          out[26] = _mm256_packs_epi32(out_26_6, out_26_7);
-          out[6] = _mm256_packs_epi32(out_06_6, out_06_7);
-          out[22] = _mm256_packs_epi32(out_22_6, out_22_7);
-          out[14] = _mm256_packs_epi32(out_14_6, out_14_7);
-          out[30] = _mm256_packs_epi32(out_30_6, out_30_7);*/
+          // Combine out of order to begin transposing
           out[2] = _mm256_packs_epi32(out_02_6, out_10_6);
           out[18] = _mm256_packs_epi32(out_02_7, out_10_7);
           out[10] = _mm256_packs_epi32(out_18_6, out_26_6);
@@ -1275,15 +1259,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           const __m256i out_15_7 = _mm256_srai_epi32(out_15_5, DCT_CONST_BITS);
           const __m256i out_31_6 = _mm256_srai_epi32(out_31_4, DCT_CONST_BITS);
           const __m256i out_31_7 = _mm256_srai_epi32(out_31_5, DCT_CONST_BITS);
-          // Combine
-          /*out[1] = _mm256_packs_epi32(out_01_6, out_01_7);
-          out[17] = _mm256_packs_epi32(out_17_6, out_17_7);
-          out[9] = _mm256_packs_epi32(out_09_6, out_09_7);
-          out[25] = _mm256_packs_epi32(out_25_6, out_25_7);
-          out[7] = _mm256_packs_epi32(out_07_6, out_07_7);
-          out[23] = _mm256_packs_epi32(out_23_6, out_23_7);
-          out[15] = _mm256_packs_epi32(out_15_6, out_15_7);
-          out[31] = _mm256_packs_epi32(out_31_6, out_31_7);*/
+          // Combine out of order to begin transposing
           out[1] = _mm256_packs_epi32(out_01_6, out_09_6);
           out[17] = _mm256_packs_epi32(out_01_7, out_09_7);
           out[9] = _mm256_packs_epi32(out_17_6, out_25_6);
@@ -1383,16 +1359,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           const __m256i out_11_7 = _mm256_srai_epi32(out_11_5, DCT_CONST_BITS);
           const __m256i out_27_6 = _mm256_srai_epi32(out_27_4, DCT_CONST_BITS);
           const __m256i out_27_7 = _mm256_srai_epi32(out_27_5, DCT_CONST_BITS);
-          // Combine
-          /*out[5] = _mm256_packs_epi32(out_05_6, out_05_7);
-          out[21] = _mm256_packs_epi32(out_21_6, out_21_7);
-          out[13] = _mm256_packs_epi32(out_13_6, out_13_7);
-          out[29] = _mm256_packs_epi32(out_29_6, out_29_7);
-          out[3] = _mm256_packs_epi32(out_03_6, out_03_7);
-          out[19] = _mm256_packs_epi32(out_19_6, out_19_7);
-          out[11] = _mm256_packs_epi32(out_11_6, out_11_7);
-          out[27] = _mm256_packs_epi32(out_27_6, out_27_7);*/
-
+          // Combine out of order to begin transposing
           out[5] = _mm256_packs_epi32(out_05_6, out_13_6);
           out[21] = _mm256_packs_epi32(out_05_7, out_13_7);
           out[13] = _mm256_packs_epi32(out_21_6, out_29_6);
@@ -1730,13 +1697,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           u[2] = _mm256_srai_epi32(u[2], 2);
           u[3] = _mm256_srai_epi32(u[3], 2);
 
-          // Combine
-          /*out[0] = _mm256_packs_epi32(u[0], u[1]);
-          out[16] = _mm256_packs_epi32(u[2], u[3]);
-          out[8] = _mm256_packs_epi32(u[4], u[5]);
-          out[24] = _mm256_packs_epi32(u[6], u[7]);*/
-          /*out_ptr[0] = _mm256_packs_epi32(u[0], u[4]);
-          out_ptr[8] = _mm256_packs_epi32(u[2], u[6]);*/
+          // Combine out of order to begin transposing
           out_ptr[0] = _mm256_packs_epi32(u[0], u[2]);
           out_ptr[8] = _mm256_packs_epi32(u[1], u[3]);
         }
@@ -1855,12 +1816,6 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           u[2] = _mm256_srai_epi32(u[2], 2);
           u[3] = _mm256_srai_epi32(u[3], 2);
 
-          /*out[4] = _mm256_packs_epi32(u[0], u[1]);
-          out[20] = _mm256_packs_epi32(u[2], u[3]);
-          out[12] = _mm256_packs_epi32(u[4], u[5]);
-          out[28] = _mm256_packs_epi32(u[6], u[7]);*/
-          /*out_ptr[4] = _mm256_packs_epi32(u[0], u[4]);
-          out_ptr[12] = _mm256_packs_epi32(u[2], u[6]);*/
           out_ptr[4] = _mm256_packs_epi32(u[0], u[2]);
           out_ptr[12] = _mm256_packs_epi32(u[1], u[3]);
         }
@@ -2053,18 +2008,6 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           out_ptr[10] = _mm256_packs_epi32(u[1], u[3]);
           out_ptr[6] = _mm256_packs_epi32(u[4], u[6]);
           out_ptr[14] = _mm256_packs_epi32(u[5], u[7]);
-          /*out[2] = _mm256_packs_epi32(u[0], u[1]);
-          out[18] = _mm256_packs_epi32(u[2], u[3]);
-          out[10] = _mm256_packs_epi32(u[4], u[5]);
-          out[26] = _mm256_packs_epi32(u[6], u[7]);
-          out[6] = _mm256_packs_epi32(u[8], u[9]);
-          out[22] = _mm256_packs_epi32(u[10], u[11]);
-          out[14] = _mm256_packs_epi32(u[12], u[13]);
-          out[30] = _mm256_packs_epi32(u[14], u[15]);*/
-          /*out_ptr[2] = _mm256_packs_epi32(u[0], u[4]);
-          out_ptr[10] = _mm256_packs_epi32(u[2], u[6]);
-          out_ptr[6] = _mm256_packs_epi32(u[8], u[12]);
-          out_ptr[14] = _mm256_packs_epi32(u[10], u[14]);*/
         }
         {
           step1[16] = _mm256_add_epi32(step3[17], step2[16]);
@@ -2196,18 +2139,6 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           out_ptr[9] = _mm256_packs_epi32(u[1], u[3]);
           out_ptr[7] = _mm256_packs_epi32(u[4], u[6]);
           out_ptr[15] = _mm256_packs_epi32(u[5], u[7]);
-          /*out[1] = _mm256_packs_epi32(u[0], u[1]);
-          out[17] = _mm256_packs_epi32(u[2], u[3]);
-          out[9] = _mm256_packs_epi32(u[4], u[5]);
-          out[25] = _mm256_packs_epi32(u[6], u[7]);
-          out[7] = _mm256_packs_epi32(u[8], u[9]);
-          out[23] = _mm256_packs_epi32(u[10], u[11]);
-          out[15] = _mm256_packs_epi32(u[12], u[13]);
-          out[31] = _mm256_packs_epi32(u[14], u[15]);*/
-          /*out_ptr[1] = _mm256_packs_epi32(u[0], u[4]);
-          out_ptr[9] = _mm256_packs_epi32(u[2], u[6]);
-          out_ptr[7] = _mm256_packs_epi32(u[8], u[12]);
-          out_ptr[15] = _mm256_packs_epi32(u[10], u[14]);*/
         }
         {
           const __m256i k32_p27_p05 =
@@ -2320,18 +2251,6 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           out_ptr[13] = _mm256_packs_epi32(u[1], u[3]);
           out_ptr[3] = _mm256_packs_epi32(u[4], u[6]);
           out_ptr[11] = _mm256_packs_epi32(u[5], u[7]);
-          /*out[5] = _mm256_packs_epi32(u[0], u[1]);
-          out[21] = _mm256_packs_epi32(u[2], u[3]);
-          out[13] = _mm256_packs_epi32(u[4], u[5]);
-          out[29] = _mm256_packs_epi32(u[6], u[7]);
-          out[3] = _mm256_packs_epi32(u[8], u[9]);
-          out[19] = _mm256_packs_epi32(u[10], u[11]);
-          out[11] = _mm256_packs_epi32(u[12], u[13]);
-          out[27] = _mm256_packs_epi32(u[14], u[15]);*/
-          /*out_ptr[5] = _mm256_packs_epi32(u[0], u[4]);
-          out_ptr[13] = _mm256_packs_epi32(u[2], u[6]);
-          out_ptr[3] = _mm256_packs_epi32(u[8], u[12]);
-          out_ptr[11] = _mm256_packs_epi32(u[10], u[14]);*/
         }
         out_ptr+=16;
         if (i == 0)
@@ -2340,7 +2259,6 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           step3[1] = hi[1];
           step3[2] = hi[2];
           step3[3] = hi[3];
-
           step3[4] = hi[4];
           step3[5] = hi[5];
           step3[6] = hi[6];
@@ -2375,7 +2293,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
         }
       }
 #endif
-      // Transpose the results, do it as four 8x8 transposes.
+      // Transpose the results, do it as four 4x16 transposes.
       {
         int transpose_block, interleave;
         int16_t *pass_output, *output_currStep, *output_nextStep;
@@ -2386,6 +2304,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           pass_output = output_org;
         }
         this_out = out;
+        // Handle [0,4) and [8,12) first, then [4,8) and [12,16)
         for (interleave = 0; interleave < 2; interleave++)
         {
           output_currStep = &pass_output[(column_start + 4*interleave) * 32];
@@ -2401,12 +2320,12 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             // 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155
             const __m256i tr0_0 = _mm256_unpacklo_epi16(this_out[0], this_out[1]);
             const __m256i tr0_1 = _mm256_unpacklo_epi16(this_out[2], this_out[3]);
-            const __m256i tr0_2 = _mm256_unpackhi_epi16(this_out[0], this_out[1]);//+16
-            const __m256i tr0_3 = _mm256_unpackhi_epi16(this_out[2], this_out[3]);//+16
+            const __m256i tr0_2 = _mm256_unpackhi_epi16(this_out[0], this_out[1]);
+            const __m256i tr0_3 = _mm256_unpackhi_epi16(this_out[2], this_out[3]);
             const __m256i tr0_4 = _mm256_unpacklo_epi16(this_out[4], this_out[5]);
             const __m256i tr0_5 = _mm256_unpacklo_epi16(this_out[6], this_out[7]);
-            const __m256i tr0_6 = _mm256_unpackhi_epi16(this_out[4], this_out[5]);//+16
-            const __m256i tr0_7 = _mm256_unpackhi_epi16(this_out[6], this_out[7]);//+16
+            const __m256i tr0_6 = _mm256_unpackhi_epi16(this_out[4], this_out[5]);
+            const __m256i tr0_7 = _mm256_unpackhi_epi16(this_out[6], this_out[7]);
             // 00  20  01  21  02  22  03  23  08  28  09  29  10  30  11  31
             // 40  60  41  61  42  62  43  63  48  68  49  69  50  70  51  71
             // 04  24  05  25  06  26  07  27  12  32  13  33  14  34  15  35
@@ -2416,13 +2335,13 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             // 84  104 85  105 86  106 87  107 92  112 93  113 94  114 95  115
             // 124 144 125 145 126 146 127 147 132 152 133 153 134 154 135 155
             const __m256i tr1_0 = _mm256_unpacklo_epi32(tr0_0, tr0_1);
-            const __m256i tr1_1 = _mm256_unpacklo_epi32(tr0_2, tr0_3);//+16
+            const __m256i tr1_1 = _mm256_unpacklo_epi32(tr0_2, tr0_3);
             const __m256i tr1_2 = _mm256_unpackhi_epi32(tr0_0, tr0_1);
-            const __m256i tr1_3 = _mm256_unpackhi_epi32(tr0_2, tr0_3);//+16
+            const __m256i tr1_3 = _mm256_unpackhi_epi32(tr0_2, tr0_3);
             const __m256i tr1_4 = _mm256_unpacklo_epi32(tr0_4, tr0_5);
-            const __m256i tr1_5 = _mm256_unpacklo_epi32(tr0_6, tr0_7);//+16
+            const __m256i tr1_5 = _mm256_unpacklo_epi32(tr0_6, tr0_7);
             const __m256i tr1_6 = _mm256_unpackhi_epi32(tr0_4, tr0_5);
-            const __m256i tr1_7 = _mm256_unpackhi_epi32(tr0_6, tr0_7);//+16
+            const __m256i tr1_7 = _mm256_unpackhi_epi32(tr0_6, tr0_7);
             // 00 20  40  60  01 21  41  61  08 28  48  68  09 29  49  69
             // 04 24  44  64  05 25  45  65  12 32  52  72  13 33  53  73
             // 02 22  42  62  03 23  43  63  10 30  50  70  11 31  51  71
@@ -2514,7 +2433,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             _mm256_storeu_si256((__m256i *)(output_nextStep + 1 * 32), tr2_1);
             _mm256_storeu_si256((__m256i *)(output_nextStep + 2 * 32), tr2_2);
             _mm256_storeu_si256((__m256i *)(output_nextStep + 3 * 32), tr2_3);
-            // Process next 8x8
+            // Process next 8x16
             output_currStep += 16;
             output_nextStep += 16;
             this_out += 8;

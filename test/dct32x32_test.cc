@@ -183,7 +183,7 @@ TEST_P(Trans32x32Test, CoeffCheck) {
     vpx_fdct32x32_c(input_block, output_ref_block, stride);
     ASM_REGISTER_STATE_CHECK(fwd_txfm_(input_block, output_block, stride));
 
-    /*if (version_ == 0) {
+    if (version_ == 0) {
       for (int j = 0; j < kNumCoeffs; ++j)
         EXPECT_EQ(output_block[j], output_ref_block[j])
             << "Error: 32x32 FDCT versions have mismatched coefficients";
@@ -191,16 +191,16 @@ TEST_P(Trans32x32Test, CoeffCheck) {
       for (int j = 0; j < kNumCoeffs; ++j)
         EXPECT_GE(6, abs(output_block[j] - output_ref_block[j]))
             << "Error: 32x32 FDCT rd has mismatched coefficients";
-    }*/
+    }
 
-    for (int x = 0; x < 32; ++x) {
+    /*for (int x = 0; x < 32; ++x) {
       for (int y = 0; y < 32; y+=8)
         printf("%4d ", output_block[x*32 + y]-output_ref_block[x*32 + y]);
       for (int y = 0; y < 32; y+=8)
         printf("%4d ", output_ref_block[x*32 + y]);
       printf("\n");
     }
-    break;
+    break;*/
   }
 }
 
