@@ -14,6 +14,46 @@
 #include "vpx_dsp/txfm_common.h"
 #include "vpx_dsp/x86/txfm_common_sse2.h"
 
+#define check_epi32_overflow_4(preg0, preg1, preg2, preg3, or_reg, zero) \
+  do {                                                     \
+    __m128i minus_one = _mm_set1_epi32(-1); \
+    __m128i reg0_shifted = _mm_slli_epi64(preg0, 1);     \
+    __m128i reg1_shifted = _mm_slli_epi64(preg1, 1);      \
+    __m128i reg2_shifted = _mm_slli_epi64(preg2, 1);      \
+    __m128i reg3_shifted = _mm_slli_epi64(preg3, 1);      \
+    __m128i reg0_top_dwords = \
+        _mm_shuffle_epi32(reg0_shifted, _MM_SHUFFLE(0, 0, 3, 1));\
+    __m128i reg1_top_dwords =\
+        _mm_shuffle_epi32(reg1_shifted, _MM_SHUFFLE(0, 0, 3, 1));\
+    __m128i reg2_top_dwords =\
+        _mm_shuffle_epi32(reg2_shifted, _MM_SHUFFLE(0, 0, 3, 1));\
+    __m128i reg3_top_dwords =\
+        _mm_shuffle_epi32(reg3_shifted, _MM_SHUFFLE(0, 0, 3, 1));\
+    __m128i top_dwords_01 = _mm_unpacklo_epi64(reg0_top_dwords, reg1_top_dwords);\
+    __m128i top_dwords_23 = _mm_unpacklo_epi64(reg2_top_dwords, reg3_top_dwords);\
+    __m128i valid_positive_01 = _mm_cmpeq_epi32(top_dwords_01, zero);\
+    __m128i valid_positive_23 = _mm_cmpeq_epi32(top_dwords_23, zero);\
+    __m128i valid_negative_01 = _mm_cmpeq_epi32(top_dwords_01, minus_one);\
+    __m128i valid_negative_23 = _mm_cmpeq_epi32(top_dwords_23, minus_one);\
+    __m128i overflow_01 = _mm_cmpeq_epi32(valid_positive_01, valid_negative_01); \
+    __m128i overflow_23 = _mm_cmpeq_epi32(valid_positive_23, valid_negative_23); \
+    __m128i overflow_0123 = _mm_or_si128(overflow_01, overflow_23); \
+    or_reg = _mm_or_si128(or_reg, overflow_0123);\
+  } while (0)
+
+#define btf_32_sse2(c0, c1, in0, in1, out0, out1, overflow_reg, zero) \
+  do {                                                    \
+    const __m128i inlo = _mm_unpacklo_epi32(in0, in1);    \
+    const __m128i inhi = _mm_unpackhi_epi32(in0, in1);    \
+    const __m128i maddlo0 = k_madd_epi32(inlo, c0);     \
+    const __m128i maddhi0 = k_madd_epi32(inhi, c0);     \
+    const __m128i maddlo1 = k_madd_epi32(inlo, c1);     \
+    const __m128i maddhi1 = k_madd_epi32(inhi, c1);     \
+    check_epi32_overflow_4(maddlo0, maddhi0, maddlo1, maddhi1, overflow_reg, zero); \
+    out0 = k_packs_epi64(maddlo0, maddhi0);       \
+    out1 = k_packs_epi64(maddlo1, maddhi1);       \
+  } while (0)
+
 // TODO(jingning) The high bit-depth version needs re-work for performance.
 // The current SSE2 implementation also causes cross reference to the static
 // functions in the C implementation file.
@@ -1684,7 +1724,12 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
           const __m128i k32_p16_m16 =
               pair_set_epi32(cospi_16_64, -cospi_16_64);
 
-          u[0] = _mm_unpacklo_epi32(step3[6], step3[5]);
+          __m128i overflow = _mm_setzero_si128();
+
+          // TODO(jingning): manually inline btf to further hide
+          // instruction latency.
+          btf_32_sse2(k32_p16_m16, k32_p16_p16, step3[6], step3[5], u[0], u[1], overflow, kZero);
+          /*u[0] = _mm_unpacklo_epi32(step3[6], step3[5]);
           u[1] = _mm_unpackhi_epi32(step3[6], step3[5]);
 
           // TODO(jingning): manually inline k_madd_epi32_ to further hide
@@ -1692,7 +1737,7 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
           v[0] = k_madd_epi32(u[0], k32_p16_m16);
           v[1] = k_madd_epi32(u[1], k32_p16_m16);
           v[2] = k_madd_epi32(u[0], k32_p16_p16);
-          v[3] = k_madd_epi32(u[1], k32_p16_p16);
+          v[3] = k_madd_epi32(u[1], k32_p16_p16);*/
 #if DCT_HIGH_BIT_DEPTH
           overflow = k_check_epi32_overflow_4(&v[0], &v[1], &v[2], &v[3], &kZero);
           if (overflow) {
@@ -1700,8 +1745,8 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
             return;
           }
 #endif  // DCT_HIGH_BIT_DEPTH
-          u[0] = k_packs_epi64(v[0], v[1]);
-          u[1] = k_packs_epi64(v[2], v[3]);
+          /*u[0] = k_packs_epi64(v[0], v[1]);
+          u[1] = k_packs_epi64(v[2], v[3]);*/
 
           v[0] = _mm_add_epi32(u[0], k__DCT_CONST_ROUNDING);
           v[1] = _mm_add_epi32(u[1], k__DCT_CONST_ROUNDING);
