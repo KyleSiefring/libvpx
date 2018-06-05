@@ -137,6 +137,18 @@ static INLINE int check_epi16_overflow_x32(
   return res0 + res1;
 }
 
+#define btf_32_sse2(c0, c1, in0, in1, out0, out1) \
+  do {                                                    \
+    const __m128i inlo = _mm_unpacklo_epi32(in0, in1);    \
+    const __m128i inhi = _mm_unpackhi_epi32(in0, in1);    \
+    const __m128i maddlo0 = k_madd_epi32(inlo, c0);     \
+    const __m128i maddhi0 = k_madd_epi32(inhi, c0);     \
+    const __m128i maddlo1 = k_madd_epi32(inlo, c1);     \
+    const __m128i maddhi1 = k_madd_epi32(inhi, c1);     \
+    out0 = k_packs_epi64_avx2(maddlo0, maddhi0);       \
+    out1 = k_packs_epi64_avx2(maddlo0, maddhi0);       \
+  } while (0)
+
 static INLINE int k_check_epi32_overflow_4(const __m128i *preg0,
                                            const __m128i *preg1,
                                            const __m128i *preg2,
@@ -162,11 +174,12 @@ static INLINE int k_check_epi32_overflow_4(const __m128i *preg0,
   __m128i valid_positve_23 = _mm_cmpeq_epi32(top_dwords_23, *zero);
   __m128i valid_negative_01 = _mm_cmpeq_epi32(top_dwords_01, minus_one);
   __m128i valid_negative_23 = _mm_cmpeq_epi32(top_dwords_23, minus_one);
-  int overflow_01 =
+  /*int overflow_01 =
       _mm_movemask_epi8(_mm_cmpeq_epi32(valid_positve_01, valid_negative_01));
   int overflow_23 =
       _mm_movemask_epi8(_mm_cmpeq_epi32(valid_positve_23, valid_negative_23));
-  return (overflow_01 + overflow_23);
+  return (overflow_01 + overflow_23);*/
+  return _mm_movemask_epi8(_mm_or_si128(_mm_cmpeq_epi32(valid_positve_01, valid_negative_01), _mm_cmpeq_epi32(valid_positve_23, valid_negative_23)));
 }
 
 static INLINE int k_check_epi32_overflow_8(
