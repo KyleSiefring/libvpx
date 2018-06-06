@@ -24,32 +24,30 @@
                    (int)(b), (int)(a))
 
 #if FDCT32x32_HIGH_PRECISION
-static INLINE __m256i k_madd_epi32_avx2(__m256i a, __m256i b) {
-  __m256i buf0, buf1;
-  buf0 = _mm256_mul_epu32(a, b);
-  a = _mm256_srli_epi64(a, 32);
-  b = _mm256_srli_epi64(b, 32);
-  buf1 = _mm256_mul_epu32(a, b);
-  return _mm256_add_epi64(buf0, buf1);
-}
-
-static INLINE __m256i k_packs_epi64_avx2(__m256i a, __m256i b) {
-  __m256i buf0 = _mm256_shuffle_epi32(a, _MM_SHUFFLE(0, 0, 2, 0));
-  __m256i buf1 = _mm256_shuffle_epi32(b, _MM_SHUFFLE(0, 0, 2, 0));
-  return _mm256_unpacklo_epi64(buf0, buf1);
-}
+// vertical madd
+#define k_vmadd_epi32_avx2(in0, in1, c0, c1, sign0, sign1, out) \
+  do {                                                    \
+    __m256i mul0, mul1; \
+    if (sign0 < 0 && sign1 < 0) \
+      mul0 = _mm256_sub_epi32(_mm256_setzero_si256(), c0); \
+    else \
+      mul0 = c0; \
+    mul0 = _mm256_mullo_epi32(mul0, in0); \
+    mul1 = _mm256_mullo_epi32(c1, in1); \
+    if (sign1 < 0) \
+      out = _mm256_sub_epi32(mul0, mul1); \
+    else if (sign0 < 0) \
+      out = _mm256_sub_epi32(mul1, mul0); \
+    else \
+      out = _mm256_add_epi32(mul0, mul1); \
+  } while (0)
 #endif
 
-#define btf_32_avx2(c0, c1, in0, in1, out0, out1) \
+// Put the signs on both sides to help with readability
+#define btf_32_avx2(sign00, sign01, c0, c1, sign10, sign11, in0, in1, out0, out1) \
   do {                                                    \
-    const __m256i inlo = _mm256_unpacklo_epi32(in0, in1);    \
-    const __m256i inhi = _mm256_unpackhi_epi32(in0, in1);    \
-    const __m256i maddlo0 = k_madd_epi32_avx2(inlo, c0);     \
-    const __m256i maddhi0 = k_madd_epi32_avx2(inhi, c0);     \
-    const __m256i maddlo1 = k_madd_epi32_avx2(inlo, c1);     \
-    const __m256i maddhi1 = k_madd_epi32_avx2(inhi, c1);     \
-    out0 = k_packs_epi64_avx2(maddlo0, maddhi0);       \
-    out1 = k_packs_epi64_avx2(maddlo1, maddhi1);       \
+    k_vmadd_epi32_avx2(in0, in1, c0, c1, sign00, sign01, out0); \
+    k_vmadd_epi32_avx2(in1, in0, c0, c1, sign11, sign10, out1); \
   } while (0)
 
 void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
@@ -1385,7 +1383,7 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
       } else {
         int i;
         __m256i hi[32];
-        __m256i u[16], v[16], sign[8];
+        __m256i u[16], v[8], sign[8];
         __m256i *out_ptr = out;
         const __m256i K32One = _mm256_set_epi32(1, 1, 1, 1, 1, 1, 1, 1);
         const __m256i k__pOne_mOne = pair256_set_epi16(1, -1);
@@ -1555,14 +1553,12 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           {
             // to be continued...
             //
-            const __m256i k32_p16_p16 =
-                pair256_set_epi32(cospi_16_64, cospi_16_64);
-            const __m256i k32_p16_m16 =
-                pair256_set_epi32(cospi_16_64, -cospi_16_64);
+            const __m256i k32_p16 = _mm256_set1_epi32(cospi_16_64);
 
             // TODO(kylesiefring): instead of doing 32 bit multiplies use madd
             // to multiply and add/sub the results
-            btf_32_avx2(k32_p16_m16, k32_p16_p16, step3[6], step3[5], u[0], u[1]);
+            // p16_m16, p16_p16
+            btf_32_avx2(1, -1, k32_p16, k32_p16, 1, 1, step3[6], step3[5], u[0], u[1]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1571,17 +1567,15 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             step1[6] = _mm256_srai_epi32(v[1], DCT_CONST_BITS);
           }
           {
-            const __m256i k32_m08_p24 =
-                pair256_set_epi32(-cospi_8_64, cospi_24_64);
-            const __m256i k32_m24_m08 =
-                pair256_set_epi32(-cospi_24_64, -cospi_8_64);
-            const __m256i k32_p24_p08 =
-                pair256_set_epi32(cospi_24_64, cospi_8_64);
+            const __m256i k32_m08 = _mm256_set1_epi32(-cospi_8_64);
+            const __m256i k32_p24 = _mm256_set1_epi32(cospi_24_64);
 
-            btf_32_avx2(k32_m08_p24, k32_p24_p08, step3[18], step3[29], u[0], u[7]);
-            btf_32_avx2(k32_m08_p24, k32_p24_p08, step3[19], step3[28], u[1], u[6]);
-            btf_32_avx2(k32_m24_m08, k32_m08_p24, step3[20], step3[27], u[2], u[5]);
-            btf_32_avx2(k32_m24_m08, k32_m08_p24, step3[21], step3[26], u[3], u[4]);
+            // m08_p24, p24_p08
+            btf_32_avx2(1, 1, k32_m08, k32_p24, 1, -1, step3[18], step3[29], u[0], u[7]);
+            btf_32_avx2(1, 1, k32_m08, k32_p24, 1, -1, step3[19], step3[28], u[1], u[6]);
+            // m24_m08, m08_p24
+            btf_32_avx2(-1, 1, k32_p24, k32_m08, 1, 1, step3[20], step3[27], u[2], u[5]);
+            btf_32_avx2(-1, 1, k32_p24, k32_m08, 1, 1, step3[21], step3[26], u[3], u[4]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1609,17 +1603,14 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             step2[7] = _mm256_add_epi32(step1[6], step3[7]);
           }
           {
-            const __m256i k32_p16_p16 =
-                pair256_set_epi32(cospi_16_64, cospi_16_64);
-            const __m256i k32_p16_m16 =
-                pair256_set_epi32(cospi_16_64, -cospi_16_64);
-            const __m256i k32_p24_p08 =
-                pair256_set_epi32(cospi_24_64, cospi_8_64);
-            const __m256i k32_m08_p24 =
-                pair256_set_epi32(-cospi_8_64, cospi_24_64);
+            const __m256i k32_p16 = _mm256_set1_epi32(cospi_16_64);
+            const __m256i k32_m08 = _mm256_set1_epi32(-cospi_8_64);
+            const __m256i k32_p24 = _mm256_set1_epi32(cospi_24_64);
 
-            btf_32_avx2(k32_p16_p16, k32_p16_m16, step1[0], step1[1], u[0], u[1]);
-            btf_32_avx2(k32_p24_p08, k32_m08_p24, step1[2], step1[3], u[2], u[3]);
+            // p16_p16, p16_m16
+            btf_32_avx2(1, 1, k32_p16, k32_p16, 1, -1, step1[0], step1[1], u[0], u[1]);
+            // p24_p08, m08_p24
+            btf_32_avx2(1, -1, k32_p24, k32_m08, 1, 1, step1[2], step1[3], u[2], u[3]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1656,15 +1647,13 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             out_ptr[8] = _mm256_packs_epi32(u[1], u[3]);
           }
           {
-            const __m256i k32_m08_p24 =
-                pair256_set_epi32(-cospi_8_64, cospi_24_64);
-            const __m256i k32_m24_m08 =
-                pair256_set_epi32(-cospi_24_64, -cospi_8_64);
-            const __m256i k32_p24_p08 =
-                pair256_set_epi32(cospi_24_64, cospi_8_64);
+            const __m256i k32_m08 = _mm256_set1_epi32(-cospi_8_64);
+            const __m256i k32_p24 = _mm256_set1_epi32(cospi_24_64);
 
-            btf_32_avx2(k32_m08_p24, k32_p24_p08, step1[9], step1[14], u[0], u[3]);
-            btf_32_avx2(k32_m24_m08, k32_m08_p24, step1[10], step1[13], u[1], u[2]);
+            // m08_p24, p24_p08
+            btf_32_avx2(1, 1, k32_m08, k32_p24, 1, -1, step1[9], step1[14], u[0], u[3]);
+            // m24_m08, m08_p24
+            btf_32_avx2(-1, 1, k32_p24, k32_m08, 1, 1, step1[10], step1[13], u[1], u[2]);
 
             u[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             u[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1696,17 +1685,15 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           }
           // stage 6
           {
-            const __m256i k32_p28_p04 =
-                pair256_set_epi32(cospi_28_64, cospi_4_64);
-            const __m256i k32_p12_p20 =
-                pair256_set_epi32(cospi_12_64, cospi_20_64);
-            const __m256i k32_m20_p12 =
-                pair256_set_epi32(-cospi_20_64, cospi_12_64);
-            const __m256i k32_m04_p28 =
-                pair256_set_epi32(-cospi_4_64, cospi_28_64);
+            const __m256i k32_m04 = _mm256_set1_epi32(-cospi_4_64);
+            const __m256i k32_p28 = _mm256_set1_epi32(cospi_28_64);
+            const __m256i k32_p12 = _mm256_set1_epi32(cospi_12_64);
+            const __m256i k32_m20 = _mm256_set1_epi32(-cospi_20_64);
 
-            btf_32_avx2(k32_p28_p04, k32_m04_p28, step2[4], step2[7], u[0], u[3]);
-            btf_32_avx2(k32_p12_p20, k32_m20_p12, step2[5], step2[6], u[1], u[2]);
+            // p28_p04, m04_p28
+            btf_32_avx2(1, -1, k32_p28, k32_m04, 1, 1, step2[4], step2[7], u[0], u[3]);
+            // p12_p20, m20_p12
+            btf_32_avx2(1, -1, k32_p12, k32_m20, 1, 1, step2[5], step2[6], u[1], u[2]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1753,23 +1740,19 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             step3[15] = _mm256_add_epi32(step2[14], step1[15]);
           }
           {
-            const __m256i k32_m04_p28 =
-                pair256_set_epi32(-cospi_4_64, cospi_28_64);
-            const __m256i k32_m28_m04 =
-                pair256_set_epi32(-cospi_28_64, -cospi_4_64);
-            const __m256i k32_m20_p12 =
-                pair256_set_epi32(-cospi_20_64, cospi_12_64);
-            const __m256i k32_m12_m20 =
-                pair256_set_epi32(-cospi_12_64, -cospi_20_64);
-            const __m256i k32_p12_p20 =
-                pair256_set_epi32(cospi_12_64, cospi_20_64);
-            const __m256i k32_p28_p04 =
-                pair256_set_epi32(cospi_28_64, cospi_4_64);
+            const __m256i k32_m04 = _mm256_set1_epi32(-cospi_4_64);
+            const __m256i k32_p28 = _mm256_set1_epi32(cospi_28_64);
+            const __m256i k32_p12 = _mm256_set1_epi32(cospi_12_64);
+            const __m256i k32_m20 = _mm256_set1_epi32(-cospi_20_64);
 
-            btf_32_avx2(k32_m04_p28, k32_p28_p04, step2[17], step2[30], u[0], u[7]);
-            btf_32_avx2(k32_m28_m04, k32_m04_p28, step2[18], step2[29], u[1], u[6]);
-            btf_32_avx2(k32_m20_p12, k32_p12_p20, step2[21], step2[26], u[2], u[5]);
-            btf_32_avx2(k32_m12_m20, k32_m20_p12, step2[22], step2[25], u[3], u[4]);
+            // m04_p28, p28_p04
+            btf_32_avx2(1, 1, k32_m04, k32_p28, 1, -1, step2[17], step2[30], u[0], u[7]);
+            // m28_m04, m04_p28
+            btf_32_avx2(-1, 1, k32_p28, k32_m04, 1, 1, step2[18], step2[29], u[1], u[6]);
+            // m20_p12, p12_p20
+            btf_32_avx2(1, 1, k32_m20, k32_p12, 1, -1, step2[21], step2[26], u[2], u[5]);
+            // m12_m20, m20_p12
+            btf_32_avx2(-1, 1, k32_p12, k32_m20, 1, 1, step2[22], step2[25], u[3], u[4]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1791,27 +1774,23 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           }
           // stage 7
           {
-            const __m256i k32_p30_p02 =
-                pair256_set_epi32(cospi_30_64, cospi_2_64);
-            const __m256i k32_p14_p18 =
-                pair256_set_epi32(cospi_14_64, cospi_18_64);
-            const __m256i k32_p22_p10 =
-                pair256_set_epi32(cospi_22_64, cospi_10_64);
-            const __m256i k32_p06_p26 =
-                pair256_set_epi32(cospi_6_64, cospi_26_64);
-            const __m256i k32_m26_p06 =
-                pair256_set_epi32(-cospi_26_64, cospi_6_64);
-            const __m256i k32_m10_p22 =
-                pair256_set_epi32(-cospi_10_64, cospi_22_64);
-            const __m256i k32_m18_p14 =
-                pair256_set_epi32(-cospi_18_64, cospi_14_64);
-            const __m256i k32_m02_p30 =
-                pair256_set_epi32(-cospi_2_64, cospi_30_64);
+            const __m256i k32_m02 = _mm256_set1_epi32(-cospi_2_64);
+            const __m256i k32_p30 = _mm256_set1_epi32(cospi_30_64);
+            const __m256i k32_p14 = _mm256_set1_epi32(cospi_14_64);
+            const __m256i k32_m18 = _mm256_set1_epi32(-cospi_18_64);
+            const __m256i k32_m10 = _mm256_set1_epi32(-cospi_10_64);
+            const __m256i k32_p22 = _mm256_set1_epi32(cospi_22_64);
+            const __m256i k32_p06 = _mm256_set1_epi32(cospi_6_64);
+            const __m256i k32_m26 = _mm256_set1_epi32(-cospi_26_64);
 
-            btf_32_avx2(k32_p30_p02, k32_m02_p30, step3[8], step3[15], u[0], u[7]);
-            btf_32_avx2(k32_p14_p18, k32_m18_p14, step3[9], step3[14], u[1], u[6]);
-            btf_32_avx2(k32_p22_p10, k32_m10_p22, step3[10], step3[13], u[2], u[5]);
-            btf_32_avx2(k32_p06_p26, k32_m26_p06, step3[11], step3[12], u[3], u[4]);
+            // p30_p02, m02_p30
+            btf_32_avx2(1, -1, k32_p30, k32_m02, 1, 1, step3[8], step3[15], u[0], u[7]);
+            // p14_p18, m18_p14
+            btf_32_avx2(1, -1, k32_p14, k32_m18, 1, 1, step3[9], step3[14], u[1], u[6]);
+            // p22_p10, m10_p22
+            btf_32_avx2(1, -1, k32_p22, k32_m10, 1, 1, step3[10], step3[13], u[2], u[5]);
+            // p06_p26, m26_p06
+            btf_32_avx2(1, -1, k32_p06, k32_m26, 1, 1, step3[11], step3[12], u[3], u[4]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1893,27 +1872,23 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
           }
           // stage 8
           {
-            const __m256i k32_p31_p01 =
-                pair256_set_epi32(cospi_31_64, cospi_1_64);
-            const __m256i k32_p15_p17 =
-                pair256_set_epi32(cospi_15_64, cospi_17_64);
-            const __m256i k32_p23_p09 =
-                pair256_set_epi32(cospi_23_64, cospi_9_64);
-            const __m256i k32_p07_p25 =
-                pair256_set_epi32(cospi_7_64, cospi_25_64);
-            const __m256i k32_m25_p07 =
-                pair256_set_epi32(-cospi_25_64, cospi_7_64);
-            const __m256i k32_m09_p23 =
-                pair256_set_epi32(-cospi_9_64, cospi_23_64);
-            const __m256i k32_m17_p15 =
-                pair256_set_epi32(-cospi_17_64, cospi_15_64);
-            const __m256i k32_m01_p31 =
-                pair256_set_epi32(-cospi_1_64, cospi_31_64);
+            const __m256i k32_m01 = _mm256_set1_epi32(-cospi_1_64);
+            const __m256i k32_p31 = _mm256_set1_epi32(cospi_31_64);
+            const __m256i k32_p15 = _mm256_set1_epi32(cospi_15_64);
+            const __m256i k32_m17 = _mm256_set1_epi32(-cospi_17_64);
+            const __m256i k32_m09 = _mm256_set1_epi32(-cospi_9_64);
+            const __m256i k32_p23 = _mm256_set1_epi32(cospi_23_64);
+            const __m256i k32_p07 = _mm256_set1_epi32(cospi_7_64);
+            const __m256i k32_m25 = _mm256_set1_epi32(-cospi_25_64);
 
-            btf_32_avx2(k32_p31_p01, k32_m01_p31, step1[16], step1[31], u[0], u[7]);
-            btf_32_avx2(k32_p15_p17, k32_m17_p15, step1[17], step1[30], u[1], u[6]);
-            btf_32_avx2(k32_p23_p09, k32_m09_p23, step1[18], step1[29], u[2], u[5]);
-            btf_32_avx2(k32_p07_p25, k32_m25_p07, step1[19], step1[28], u[3], u[4]);
+            // p31_p01, m01_p31
+            btf_32_avx2(1, -1, k32_p31, k32_m01, 1, 1, step1[16], step1[31], u[0], u[7]);
+            // p15_p17, m15_p17
+            btf_32_avx2(1, -1, k32_p15, k32_m17, 1, 1, step1[17], step1[30], u[1], u[6]);
+            // p23_p09, m09_p23
+            btf_32_avx2(1, -1, k32_p23, k32_m09, 1, 1, step1[18], step1[29], u[2], u[5]);
+            // p07_p25, m25_p07
+            btf_32_avx2(1, -1, k32_p07, k32_m25, 1, 1, step1[19], step1[28], u[3], u[4]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1976,27 +1951,23 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             out_ptr[15] = _mm256_packs_epi32(u[5], u[7]);
           }
           {
-            const __m256i k32_p27_p05 =
-                pair256_set_epi32(cospi_27_64, cospi_5_64);
-            const __m256i k32_p11_p21 =
-                pair256_set_epi32(cospi_11_64, cospi_21_64);
-            const __m256i k32_p19_p13 =
-                pair256_set_epi32(cospi_19_64, cospi_13_64);
-            const __m256i k32_p03_p29 =
-                pair256_set_epi32(cospi_3_64, cospi_29_64);
-            const __m256i k32_m29_p03 =
-                pair256_set_epi32(-cospi_29_64, cospi_3_64);
-            const __m256i k32_m13_p19 =
-                pair256_set_epi32(-cospi_13_64, cospi_19_64);
-            const __m256i k32_m21_p11 =
-                pair256_set_epi32(-cospi_21_64, cospi_11_64);
-            const __m256i k32_m05_p27 =
-                pair256_set_epi32(-cospi_5_64, cospi_27_64);
+            const __m256i k32_m05 = _mm256_set1_epi32(-cospi_5_64);
+            const __m256i k32_p27 = _mm256_set1_epi32(cospi_27_64);
+            const __m256i k32_p11 = _mm256_set1_epi32(cospi_11_64);
+            const __m256i k32_m21 = _mm256_set1_epi32(-cospi_21_64);
+            const __m256i k32_m13 = _mm256_set1_epi32(-cospi_13_64);
+            const __m256i k32_p19 = _mm256_set1_epi32(cospi_19_64);
+            const __m256i k32_p03 = _mm256_set1_epi32(cospi_3_64);
+            const __m256i k32_m29 = _mm256_set1_epi32(-cospi_29_64);
 
-            btf_32_avx2(k32_p27_p05, k32_m05_p27, step1[20], step1[27], u[0], u[7]);
-            btf_32_avx2(k32_p11_p21, k32_m21_p11, step1[21], step1[26], u[1], u[6]);
-            btf_32_avx2(k32_p19_p13, k32_m13_p19, step1[22], step1[25], u[2], u[5]);
-            btf_32_avx2(k32_p03_p29, k32_m29_p03, step1[23], step1[24], u[3], u[4]);
+            // p27_p05, m05_p27
+            btf_32_avx2(1, -1, k32_p27, k32_m05, 1, 1, step1[20], step1[27], u[0], u[7]);
+            // p11_p21, m21_p11
+            btf_32_avx2(1, -1, k32_p11, k32_m21, 1, 1, step1[21], step1[26], u[1], u[6]);
+            // p19_p13, m13_p19
+            btf_32_avx2(1, -1, k32_p19, k32_m13, 1, 1, step1[22], step1[25], u[2], u[5]);
+            // p03_p29, m29_p03
+            btf_32_avx2(1, -1, k32_p03, k32_m29, 1, 1, step1[23], step1[24], u[3], u[4]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
