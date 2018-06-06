@@ -1718,8 +1718,8 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
             __m128i overflow_vec = _mm_setzero_si128();
             (void)overflow_vec;
 
-            // TODO(kylesiefring): replace muls here with add/subs and multiple
-            // when converting to 32 bits in stage 3
+            // TODO(kylesiefring): instead of doing 32 bit multiplies use madd
+            // to multiply and add/sub the results
             btf_32_sse2(k32_p16_m16, k32_p16_p16, step3[6], step3[5], u[0], u[1], overflow_vec, kZero);
 #if DCT_HIGH_BIT_DEPTH
             if (_mm_movemask_epi8(overflow_vec)) {
@@ -1741,7 +1741,9 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
             const __m128i k32_p24_p08 = pair_set_epi32(cospi_24_64, cospi_8_64);
             __m128i overflow_vec = _mm_setzero_si128();
             (void)overflow_vec;
- 
+
+            // TODO(kylesiefring): instead of doing 32 bit multiplies use madd
+            // to multiply and add/sub the results
             btf_32_sse2(k32_m08_p24, k32_p24_p08, step3[18], step3[29], u[0], u[7], overflow_vec, kZero);
             btf_32_sse2(k32_m08_p24, k32_p24_p08, step3[19], step3[28], u[1], u[6], overflow_vec, kZero);
             btf_32_sse2(k32_m24_m08, k32_m08_p24, step3[20], step3[27], u[2], u[5], overflow_vec, kZero);
@@ -1788,8 +1790,6 @@ void FDCT32x32_2D(const int16_t *input, tran_low_t *output_org, int stride) {
             __m128i overflow_vec = _mm_setzero_si128();
             (void)overflow_vec;
 
-            // TODO(jingning): manually inline k_madd_epi32_ to further hide
-            // instruction latency.
             btf_32_sse2(k32_p16_p16, k32_p16_m16, step1[0], step1[1], u[0], u[1], overflow_vec, kZero);
             btf_32_sse2(k32_p24_p08, k32_m08_p24, step1[2], step1[3], u[2], u[3], overflow_vec, kZero);
 #if DCT_HIGH_BIT_DEPTH
