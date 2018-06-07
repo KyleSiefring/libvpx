@@ -25,14 +25,14 @@
 
 #if FDCT32x32_HIGH_PRECISION
 // vertical madd
-#define k_vmadd_epi32_avx2(in0, in1, c0, c1, sign0, sign1, out) \
+#define k_madd_32_avx2(c0, c1, sign0, sign1, in0, in1, out) \
   do {                                                    \
-    __m256i mul0, mul1; \
+    __m256i c0x, mul0, mul1; \
     if (sign0 < 0 && sign1 < 0) \
-      mul0 = _mm256_sub_epi32(_mm256_setzero_si256(), c0); \
+      c0x = _mm256_sub_epi32(_mm256_setzero_si256(), c0); \
     else \
-      mul0 = c0; \
-    mul0 = _mm256_mullo_epi32(mul0, in0); \
+      c0x = c0; \
+    mul0 = _mm256_mullo_epi32(c0x, in0); \
     mul1 = _mm256_mullo_epi32(c1, in1); \
     if (sign1 < 0) \
       out = _mm256_sub_epi32(mul0, mul1); \
@@ -42,13 +42,6 @@
       out = _mm256_add_epi32(mul0, mul1); \
   } while (0)
 #endif
-
-// Put the signs on both sides to help with readability
-#define btf_32_avx2(sign00, sign01, c0, c1, sign10, sign11, in0, in1, out0, out1) \
-  do {                                                    \
-    k_vmadd_epi32_avx2(in0, in1, c0, c1, sign00, sign01, out0); \
-    k_vmadd_epi32_avx2(in1, in0, c0, c1, sign11, sign10, out1); \
-  } while (0)
 
 void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
   // Calculate pre-multiplied strides
@@ -1557,8 +1550,10 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
 
             // TODO(kylesiefring): instead of doing 32 bit multiplies use madd
             // to multiply and add/sub the results
-            // p16_m16, p16_p16
-            btf_32_avx2(1, -1, k32_p16, k32_p16, 1, 1, step3[6], step3[5], u[0], u[1]);
+            // p16_m16
+            k_madd_32_avx2(k32_p16, k32_p16, 1, -1, step3[6], step3[5], u[0]);
+            // p16_p16
+            k_madd_32_avx2(k32_p16, k32_p16, 1, 1, step3[6], step3[5], u[1]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1570,12 +1565,18 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_m08 = _mm256_set1_epi32(-cospi_8_64);
             const __m256i k32_p24 = _mm256_set1_epi32(cospi_24_64);
 
-            // m08_p24, p24_p08
-            btf_32_avx2(1, 1, k32_m08, k32_p24, 1, -1, step3[18], step3[29], u[0], u[7]);
-            btf_32_avx2(1, 1, k32_m08, k32_p24, 1, -1, step3[19], step3[28], u[1], u[6]);
-            // m24_m08, m08_p24
-            btf_32_avx2(-1, 1, k32_p24, k32_m08, 1, 1, step3[20], step3[27], u[2], u[5]);
-            btf_32_avx2(-1, 1, k32_p24, k32_m08, 1, 1, step3[21], step3[26], u[3], u[4]);
+            // m08_p24
+            k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step3[18], step3[29], u[0]);
+            k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step3[19], step3[28], u[1]);
+            // m24_m08
+            k_madd_32_avx2(k32_p24, k32_m08, -1, 1, step3[20], step3[27], u[2]);
+            k_madd_32_avx2(k32_p24, k32_m08, -1, 1, step3[21], step3[26], u[3]);
+            // m08_p24
+						k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step3[21], step3[26], u[4]);
+						k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step3[20], step3[27], u[5]);
+            // p24_p08
+						k_madd_32_avx2(k32_p24, k32_m08, 1, -1, step3[19], step3[28], u[6]);
+						k_madd_32_avx2(k32_p24, k32_m08, 1, -1, step3[18], step3[29], u[7]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1607,10 +1608,14 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_m08 = _mm256_set1_epi32(-cospi_8_64);
             const __m256i k32_p24 = _mm256_set1_epi32(cospi_24_64);
 
-            // p16_p16, p16_m16
-            btf_32_avx2(1, 1, k32_p16, k32_p16, 1, -1, step1[0], step1[1], u[0], u[1]);
-            // p24_p08, m08_p24
-            btf_32_avx2(1, -1, k32_p24, k32_m08, 1, 1, step1[2], step1[3], u[2], u[3]);
+            // p16_p16
+            k_madd_32_avx2(k32_p16, k32_p16, 1, 1, step1[0], step1[1], u[0]);
+            // p16_m16
+						k_madd_32_avx2(k32_p16, k32_p16, 1, -1, step1[0], step1[1], u[1]);
+            // p24_p08
+            k_madd_32_avx2(k32_p24, k32_m08, 1, -1, step1[2], step1[3], u[2]);
+            // m08_p24
+						k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step1[2], step1[3], u[3]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1650,10 +1655,14 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_m08 = _mm256_set1_epi32(-cospi_8_64);
             const __m256i k32_p24 = _mm256_set1_epi32(cospi_24_64);
 
-            // m08_p24, p24_p08
-            btf_32_avx2(1, 1, k32_m08, k32_p24, 1, -1, step1[9], step1[14], u[0], u[3]);
-            // m24_m08, m08_p24
-            btf_32_avx2(-1, 1, k32_p24, k32_m08, 1, 1, step1[10], step1[13], u[1], u[2]);
+            // m08_p24
+            k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step1[9], step1[14], u[0]);
+            // m24_m08
+            k_madd_32_avx2(k32_p24, k32_m08, -1, 1, step1[10], step1[13], u[1]);
+            // m08_p24
+						k_madd_32_avx2(k32_m08, k32_p24, 1, 1, step1[10], step1[13], u[2]);
+            // p24_p08
+						k_madd_32_avx2(k32_p24, k32_m08, 1, -1, step1[9], step1[14], u[3]);
 
             u[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             u[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1690,10 +1699,14 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_p12 = _mm256_set1_epi32(cospi_12_64);
             const __m256i k32_m20 = _mm256_set1_epi32(-cospi_20_64);
 
-            // p28_p04, m04_p28
-            btf_32_avx2(1, -1, k32_p28, k32_m04, 1, 1, step2[4], step2[7], u[0], u[3]);
-            // p12_p20, m20_p12
-            btf_32_avx2(1, -1, k32_p12, k32_m20, 1, 1, step2[5], step2[6], u[1], u[2]);
+            // p28_p04
+            k_madd_32_avx2(k32_p28, k32_m04, 1, -1, step2[4], step2[7], u[0]);
+            // p12_p20
+            k_madd_32_avx2(k32_p12, k32_m20, 1, -1, step2[5], step2[6], u[1]);
+            // m20_p12
+						k_madd_32_avx2(k32_m20, k32_p12, 1, 1, step2[5], step2[6], u[2]);
+            // m04_p28
+						k_madd_32_avx2(k32_m04, k32_p28, 1, 1, step2[4], step2[7], u[3]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1745,14 +1758,22 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_p12 = _mm256_set1_epi32(cospi_12_64);
             const __m256i k32_m20 = _mm256_set1_epi32(-cospi_20_64);
 
-            // m04_p28, p28_p04
-            btf_32_avx2(1, 1, k32_m04, k32_p28, 1, -1, step2[17], step2[30], u[0], u[7]);
-            // m28_m04, m04_p28
-            btf_32_avx2(-1, 1, k32_p28, k32_m04, 1, 1, step2[18], step2[29], u[1], u[6]);
-            // m20_p12, p12_p20
-            btf_32_avx2(1, 1, k32_m20, k32_p12, 1, -1, step2[21], step2[26], u[2], u[5]);
-            // m12_m20, m20_p12
-            btf_32_avx2(-1, 1, k32_p12, k32_m20, 1, 1, step2[22], step2[25], u[3], u[4]);
+            // m04_p28
+            k_madd_32_avx2(k32_m04, k32_p28, 1, 1, step2[17], step2[30], u[0]);
+            // m28_m04
+            k_madd_32_avx2(k32_p28, k32_m04, -1, 1, step2[18], step2[29], u[1]);
+            // m20_p12
+            k_madd_32_avx2(k32_m20, k32_p12, 1, 1, step2[21], step2[26], u[2]);
+            // m12_m20
+            k_madd_32_avx2(k32_p12, k32_m20, -1, 1, step2[22], step2[25], u[3]);
+            // m20_p12
+						k_madd_32_avx2(k32_m20, k32_p12, 1, 1, step2[22], step2[25], u[4]);
+            // p12_p20
+						k_madd_32_avx2(k32_p12, k32_m20, 1, -1, step2[21], step2[26], u[5]);
+            // m04_p28
+						k_madd_32_avx2(k32_m04, k32_p28, 1, 1, step2[18], step2[29], u[6]);
+            // p28_p04
+						k_madd_32_avx2(k32_p28, k32_m04, 1, -1, step2[17], step2[30], u[7]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1783,14 +1804,22 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_p06 = _mm256_set1_epi32(cospi_6_64);
             const __m256i k32_m26 = _mm256_set1_epi32(-cospi_26_64);
 
-            // p30_p02, m02_p30
-            btf_32_avx2(1, -1, k32_p30, k32_m02, 1, 1, step3[8], step3[15], u[0], u[7]);
-            // p14_p18, m18_p14
-            btf_32_avx2(1, -1, k32_p14, k32_m18, 1, 1, step3[9], step3[14], u[1], u[6]);
-            // p22_p10, m10_p22
-            btf_32_avx2(1, -1, k32_p22, k32_m10, 1, 1, step3[10], step3[13], u[2], u[5]);
-            // p06_p26, m26_p06
-            btf_32_avx2(1, -1, k32_p06, k32_m26, 1, 1, step3[11], step3[12], u[3], u[4]);
+            // p30_p02
+            k_madd_32_avx2(k32_p30, k32_m02, 1, -1, step3[8], step3[15], u[0]);
+            // p14_p18
+            k_madd_32_avx2(k32_p14, k32_m18, 1, -1, step3[9], step3[14], u[1]);
+            // p22_p10
+            k_madd_32_avx2(k32_p22, k32_m10, 1, -1, step3[10], step3[13], u[2]);
+            // p06_p26
+            k_madd_32_avx2(k32_p06, k32_m26, 1, -1, step3[11], step3[12], u[3]);
+            // m26_p06
+						k_madd_32_avx2(k32_m26, k32_p06, 1, 1, step3[11], step3[12], u[4]);
+            // m10_p22
+						k_madd_32_avx2(k32_m10, k32_p22, 1, 1, step3[10], step3[13], u[5]);
+            // m18_p14
+						k_madd_32_avx2(k32_m18, k32_p14, 1, 1, step3[9], step3[14], u[6]);
+            // m02_p30
+						k_madd_32_avx2(k32_m02, k32_p30, 1, 1, step3[8], step3[15], u[7]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1881,14 +1910,22 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_p07 = _mm256_set1_epi32(cospi_7_64);
             const __m256i k32_m25 = _mm256_set1_epi32(-cospi_25_64);
 
-            // p31_p01, m01_p31
-            btf_32_avx2(1, -1, k32_p31, k32_m01, 1, 1, step1[16], step1[31], u[0], u[7]);
-            // p15_p17, m15_p17
-            btf_32_avx2(1, -1, k32_p15, k32_m17, 1, 1, step1[17], step1[30], u[1], u[6]);
-            // p23_p09, m09_p23
-            btf_32_avx2(1, -1, k32_p23, k32_m09, 1, 1, step1[18], step1[29], u[2], u[5]);
-            // p07_p25, m25_p07
-            btf_32_avx2(1, -1, k32_p07, k32_m25, 1, 1, step1[19], step1[28], u[3], u[4]);
+            // p31_p01
+            k_madd_32_avx2(k32_p31, k32_m01, 1, -1, step1[16], step1[31], u[0]);
+            // p15_p17
+            k_madd_32_avx2(k32_p15, k32_m17, 1, -1, step1[17], step1[30], u[1]);
+            // p23_p09
+            k_madd_32_avx2(k32_p23, k32_m09, 1, -1, step1[18], step1[29], u[2]);
+            // p07_p25
+            k_madd_32_avx2(k32_p07, k32_m25, 1, -1, step1[19], step1[28], u[3]);
+            // m25_p07
+						k_madd_32_avx2(k32_m25, k32_p07, 1, 1, step1[19], step1[28], u[4]);
+            // m09_p23
+						k_madd_32_avx2(k32_m09, k32_p23, 1, 1, step1[18], step1[29], u[5]);
+            // m15_p17
+						k_madd_32_avx2(k32_m17, k32_p15, 1, 1, step1[17], step1[30], u[6]);
+            // m01_p31
+						k_madd_32_avx2(k32_m01, k32_p31, 1, 1, step1[16], step1[31], u[7]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -1960,14 +1997,22 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
             const __m256i k32_p03 = _mm256_set1_epi32(cospi_3_64);
             const __m256i k32_m29 = _mm256_set1_epi32(-cospi_29_64);
 
-            // p27_p05, m05_p27
-            btf_32_avx2(1, -1, k32_p27, k32_m05, 1, 1, step1[20], step1[27], u[0], u[7]);
-            // p11_p21, m21_p11
-            btf_32_avx2(1, -1, k32_p11, k32_m21, 1, 1, step1[21], step1[26], u[1], u[6]);
-            // p19_p13, m13_p19
-            btf_32_avx2(1, -1, k32_p19, k32_m13, 1, 1, step1[22], step1[25], u[2], u[5]);
-            // p03_p29, m29_p03
-            btf_32_avx2(1, -1, k32_p03, k32_m29, 1, 1, step1[23], step1[24], u[3], u[4]);
+            // p27_p05
+            k_madd_32_avx2(k32_p27, k32_m05, 1, -1, step1[20], step1[27], u[0]);
+            // p11_p21
+            k_madd_32_avx2(k32_p11, k32_m21, 1, -1, step1[21], step1[26], u[1]);
+            // p19_p13
+            k_madd_32_avx2(k32_p19, k32_m13, 1, -1, step1[22], step1[25], u[2]);
+            // p03_p29
+            k_madd_32_avx2(k32_p03, k32_m29, 1, -1, step1[23], step1[24], u[3]);
+            // m29_p03
+            k_madd_32_avx2(k32_m29, k32_p03, 1, 1, step1[23], step1[24], u[4]);
+            // m13_p19
+            k_madd_32_avx2(k32_m13, k32_p19, 1, 1, step1[22], step1[25], u[5]);
+            // m21_p11
+            k_madd_32_avx2(k32_m21, k32_p11, 1, 1, step1[21], step1[26], u[6]);
+            // m05_p27
+            k_madd_32_avx2(k32_m05, k32_p27, 1, 1, step1[20], step1[27], u[7]);
 
             v[0] = _mm256_add_epi32(u[0], k__DCT_CONST_ROUNDING);
             v[1] = _mm256_add_epi32(u[1], k__DCT_CONST_ROUNDING);
@@ -2227,3 +2272,5 @@ void FDCT32x32_2D_AVX2(const int16_t *input, int16_t *output_org, int stride) {
     }
   }
 }  // NOLINT
+
+#undef k_madd_32_avx2
